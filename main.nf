@@ -11,8 +11,6 @@
 
 // log.info Headers.nf_core(workflow, params.monochrome_logs)
 
-log.info "$projectDir"
-
 ////////////////////////////////////////////////////
 /* --               PRINT HELP                 -- */
 ////////////////////////////////////////////////////+
@@ -36,23 +34,25 @@ if (params.help) {
 ////////////////////////////////////////////////////
 
 // These params need to be set late, after the iGenomes config is loaded
-params.fasta = params.genome ? params.genomes[ params.genome ].fasta ?: false : false
+// params.fasta = params.genome ? params.genomes[ params.genome ].fasta ?: false : false
+params.fasta = params.genome ?: false
 
-// Check if genome exists in the config file
-if (params.genomes && params.genome && !params.genomes.containsKey(params.genome)) {
-    exit 1, "The provided genome '${params.genome}' is not available in the iGenomes file. Currently the available genomes are ${params.genomes.keySet().join(', ')}"
-}
+// // Check if genome exists in the config file
+// if (params.genomes && params.genome && !params.genomes.containsKey(params.genome)) {
+//     exit 1, "The provided genome '${params.genome}' is not available in the iGenomes file. Currently the available genomes are ${params.genomes.keySet().join(', ')}"
+// }
 
-Channel
-    .fromPath("$projectDir/assets/where_are_my_files.txt", checkIfExists: true)
-    .into { ch_wherearemyfiles_for_trimgalore; ch_wherearemyfiles_for_alignment }
+// Channel
+//     .fromPath("$projectDir/assets/where_are_my_files.txt", checkIfExists: true)
+//     .into { ch_wherearemyfiles_for_trimgalore; ch_wherearemyfiles_for_alignment }
 
 ch_splicesites_for_bismark_hisat_align = params.known_splices ? Channel.fromPath(params.known_splices, checkIfExists: true) : Channel.empty()
 
 if( params.aligner =~ /bismark/ ){
-    params.bismark_index = params.genome && params.aligner == 'bismark' ? params.genomes[ params.genome ].bismark ?: false : false
+//     params.bismark_index = params.genome && params.aligner == 'bismark' ? params.genomes[ params.genome ].bismark ?: false : false
+    params.bismark_index = params.genome && params.aligner == 'bismark' ?: false
     assert params.bismark_index || params.fasta : "No reference genome index or fasta file specified"
-    ch_wherearemyfiles_for_alignment.set { ch_wherearemyfiles_for_bismark_align }
+    // ch_wherearemyfiles_for_alignment.set { ch_wherearemyfiles_for_bismark_align }
 
     if( params.bismark_index ){
         Channel
@@ -76,7 +76,8 @@ else if( params.aligner == 'bwameth' ){
         .ifEmpty { exit 1, "fasta file not found : ${params.fasta}" }
         .into { ch_fasta_for_makeBwaMemIndex; ch_fasta_for_makeFastaIndex; ch_fasta_for_methyldackel }
 
-    params.bwa_meth_index = params.genome ? params.genomes[ params.genome ].bwa_meth ?: false : false
+    // params.bwa_meth_index = params.genome ? params.genomes[ params.genome ].bwa_meth ?: false : false
+    params.bwa_meth_index = params.genome.bwa_meth ?: false
     if( params.bwa_meth_index ){
         Channel
             .fromPath("${params.bwa_meth_index}*", checkIfExists: true)
@@ -85,7 +86,8 @@ else if( params.aligner == 'bwameth' ){
         ch_fasta_for_makeBwaMemIndex.close()
     }
 
-    params.fasta_index = params.genome ? params.genomes[ params.genome ].fasta_index ?: false : false
+    // params.fasta_index = params.genome ? params.genomes[ params.genome ].fasta_index ?: false : false
+    params.fasta_index = params.genome.fasta_index ?: false
     if( params.fasta_index ){
         Channel
             .fromPath(params.fasta_index, checkIfExists: true)
@@ -154,8 +156,8 @@ if (workflow.profile.contains('awsbatch')) {
 // Stage config files
 ch_multiqc_config = file("$projectDir/assets/multiqc_config.yaml", checkIfExists: true)
 ch_multiqc_custom_config = params.multiqc_config ? Channel.fromPath(params.multiqc_config, checkIfExists: true) : Channel.empty()
-ch_output_docs = file("$projectDir/docs/output.md", checkIfExists: true)
-ch_output_docs_images = file("$projectDir/docs/images/", checkIfExists: true)
+// ch_output_docs = file("$projectDir/docs/output.md", checkIfExists: true)
+// ch_output_docs_images = file("$projectDir/docs/images/", checkIfExists: true)
 
 /*
  * Create a channel for input read files

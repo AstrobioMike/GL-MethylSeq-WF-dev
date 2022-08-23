@@ -1,1 +1,5 @@
 BS-test-reads/
+ref-fasta/
+.nextflow*
+results/
+work/
