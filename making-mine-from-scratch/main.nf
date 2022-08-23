@@ -21,90 +21,98 @@ if (params.help) {
     exit 0
 }
 
-
-// process basicExample {
-    
-//     input:
-//         val x from num
-    
-//     "echo process job $x"
-
-// }
-
-////////////////////////////////////////////////////
-/* --            STARTING CHANNELS             -- */
-////////////////////////////////////////////////////
-
-ch_x = channel.fromList([1, 2])
-ch_y = channel.fromList(['a', 'b', 'c'])
-
-
 ////////////////////////////////////////////////////
 /* --                PROCESSES                 -- */
 ////////////////////////////////////////////////////
 
 
-process basicExample {
+// process basicExample {
     
+//     input:
+//         val num
+
+//     output:
+//         stdout
+
+//     "echo process job $num"
+
+// }
+
+
+// process REPORT {
+
+//     name = "REPORT"
+
+//     input:
+//         path input_reads
+
+//     output:
+//         stdout emit: stdout
+
+//     script:
+//         """
+//         echo "Doing stuff to $input_reads"
+//         echo "Process task name is $task.name"
+//         ls -l $input_reads
+//         """
+// }
+
+
+// process tupleExample {
+
+//     input:
+//         tuple val(x), path('latin.txt')
+
+//     """
+//     echo Processing $x
+//     cat - latin.txt > copy
+//     """
+
+// }
+
+
+// process foo {
+
+//     debug true
+
+//     input:
+//         val x
+//         val y
+
+//     script:
+//         """
+//         echo $x and $y
+//         """
+
+// }
+
+process fastqc {
+
+    tag "$name"
+
+    container "quay.io/biocontainers/fastqc:0.11.9--hdfd78af_1"
+
     input:
-        val num
+        tuple val(name), path(reads)
 
     output:
-        stdout
-
-    "echo process job $num"
-
-}
-
-
-process REPORT {
-
-    name = "REPORT"
-
-    input:
-        path input_reads
-
-    output:
-        stdout emit: stdout
+        path "*_fastqc.{zip,html}"
+        
 
     script:
+
         """
-        echo "Doing stuff to $input_reads"
-        echo "Process task name is $task.name"
-        ls -l $input_reads
-        """
-}
-
-
-process tupleExample {
-
-    input:
-        tuple val(x), path('latin.txt')
-
-    """
-    echo Processing $x
-    cat - latin.txt > copy
-    """
-
-}
-
-
-process foo {
-
-    debug true
-
-    input:
-        val x
-        val y
-
-    script:
-        """
-        echo $x and $y
+        fastqc $reads
         """
 
 }
 
 workflow {
+
+    input_reads = Channel.fromFilePairs( params.input_reads, size: params.single_end ? 1 : 2 ) { file -> file.name.replaceAll( /.fastq.gz|.fq.gz/,'' ) }
+    // input_reads.view()
+
+    fastqc(input_reads)
 
     // num = channel.from( 1, 2, 3 )
     // input_reads = channel.fromPath(params.input_reads)
@@ -117,6 +125,6 @@ workflow {
 
     // tupleExample(values)
 
-    foo( ch_x, ch_y )
+    // foo( ch_x, ch_y )
 
 }
