@@ -1,0 +1,5 @@
+.nextflow*
+results/
+work/
+MultiQC_Outputs/
+samples.txt
