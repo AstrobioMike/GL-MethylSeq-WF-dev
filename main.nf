@@ -22,109 +22,56 @@ if (params.help) {
 }
 
 ////////////////////////////////////////////////////
-/* --                PROCESSES                 -- */
+/* --            PRE-FLIGHT CHECKS             -- */
 ////////////////////////////////////////////////////
 
+// checking lib_type set in nextflow.config
+if ( params.lib_type !in params.accepted_lib_types ) {
 
-// process basicExample {
-    
-//     input:
-//         val num
+    println "\n    ${RED}No suitable 'lib_type' was set in nextflow.config.${NC}"
+    println "    Exiting for now.\n"
 
-//     output:
-//         stdout
-
-//     "echo process job $num"
-
-// }
-
-
-// process REPORT {
-
-//     name = "REPORT"
-
-//     input:
-//         path input_reads
-
-//     output:
-//         stdout emit: stdout
-
-//     script:
-//         """
-//         echo "Doing stuff to $input_reads"
-//         echo "Process task name is $task.name"
-//         ls -l $input_reads
-//         """
-// }
-
-
-// process tupleExample {
-
-//     input:
-//         tuple val(x), path('latin.txt')
-
-//     """
-//     echo Processing $x
-//     cat - latin.txt > copy
-//     """
-
-// }
-
-
-// process foo {
-
-//     debug true
-
-//     input:
-//         val x
-//         val y
-
-//     script:
-//         """
-//         echo $x and $y
-//         """
-
-// }
-
-process fastqc {
-
-    tag "$name"
-
-    container "quay.io/biocontainers/fastqc:0.11.9--hdfd78af_1"
-
-    input:
-        tuple val(name), path(reads)
-
-    output:
-        path "*_fastqc.{zip,html}"
-        
-
-    script:
-
-        """
-        fastqc $reads
-        """
+    exit 1
 
 }
 
+
+
+////////////////////////////////////////////////////
+/* --                PROCESSES                 -- */
+////////////////////////////////////////////////////
+
+include { FASTQC as RAW_FASTQC } from './modules/QC.nf'
+include { MULTIQC as RAW_MULTIQC } from './modules/QC.nf' addParams(MQCLabel: "raw")
+include { TRIMGALORE } from './modules/QC.nf'
+
+
+////////////////////////////////////////////////////
+/* --                WORKFLOW                  -- */
+////////////////////////////////////////////////////
+
 workflow {
 
-    input_reads = Channel.fromFilePairs( params.input_reads, size: params.single_end ? 1 : 2 ) { file -> file.name.replaceAll( /.fastq.gz|.fq.gz/,'' ) }
-    // input_reads.view()
+    // detecting input reads and removing extensions from their unique sample names
+    ch_input_reads = Channel.fromFilePairs( params.input_reads, size: params.single_end ? 1 : 2 ) { file -> file.name.replaceAll( /.fastq.gz|.fq.gz/,'' ) }
 
-    fastqc(input_reads)
+    // writing out unique sample names to file and setting to channel
+    ch_input_reads | map { it -> it[0] } |
+                     collectFile( name: 'samples.txt', newLine: true, storeDir: "./" ) |
+                     set { ch_samples_txt }
 
-    // num = channel.from( 1, 2, 3 )
-    // input_reads = channel.fromPath(params.input_reads)
-    // values = channel.from( [1, 'alpha'], [2, 'beta'], [3, 'delta'] )
+    // // raw fastqc on input reads
+    // RAW_FASTQC(ch_input_reads)
 
-    // // REPORT(input_reads)
-    // // REPORT.out.stdout | view
+    // // getting all raw fastqc output files into one channel
+    // RAW_FASTQC.out.fastqc | map { it -> [ it[1], it[2]] } |
+    //                         flatten | collect | set { ch_raw_mqc_inputs }
 
-    // // basicExample(num) | view
+    // // multiqc on raw fastqc outputs
+    // RAW_MULTIQC( ch_raw_mqc_inputs )
 
-    // tupleExample(values)
 
-    // foo( ch_x, ch_y )
-
+    // quality trimming/filtering input reads
+    TRIMGALORE( ch_input_reads )
+   
 }
