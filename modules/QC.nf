@@ -5,13 +5,13 @@
 
 process FASTQC {
 
-    tag "fastqc on: $name"
+    tag "On: $name"
 
     input:
         tuple val(name), path(reads)
 
     output:
-        tuple val(name), path("${name}_fastqc.zip"), path("${name}_fastqc.html"), emit: fastqc
+        tuple val(name), path("${ name }${ params.file_suffix }_fastqc.zip"), path("${name}${ params.file_suffix }_fastqc.html"), emit: fastqc
 
     script:
 
@@ -23,7 +23,7 @@ process FASTQC {
 
 process MULTIQC {
 
-    tag "multiqc on: ${ params.MQCLabel }"
+    tag "On: ${ params.MQCLabel }"
 
     publishDir params.multiqc_outputs_dir, mode: 'link'
 
@@ -51,7 +51,7 @@ process MULTIQC {
 
 process TRIMGALORE {
 
-    tag "trimgalore on: $name"
+    tag "On: $name"
 
     publishDir params.filtered_reads_dir, mode: 'link'
 

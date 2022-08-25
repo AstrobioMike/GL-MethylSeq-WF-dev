@@ -41,8 +41,10 @@ if ( params.lib_type !in params.accepted_lib_types ) {
 /* --                PROCESSES                 -- */
 ////////////////////////////////////////////////////
 
-include { FASTQC as RAW_FASTQC } from './modules/QC.nf'
+include { FASTQC as RAW_FASTQC } from './modules/QC.nf' addParams(file_suffix: "")
+include { FASTQC as TRIMMED_FASTQC } from './modules/QC.nf' addParams(file_suffix: "_trimmed")
 include { MULTIQC as RAW_MULTIQC } from './modules/QC.nf' addParams(MQCLabel: "raw")
+include { MULTIQC as TRIMMED_MULTIQC } from './modules/QC.nf' addParams(MQCLabel: "trimmed")
 include { TRIMGALORE } from './modules/QC.nf'
 
 
@@ -61,7 +63,7 @@ workflow {
                      set { ch_samples_txt }
 
     // raw fastqc on input reads
-    RAW_FASTQC(ch_input_reads)
+    RAW_FASTQC( ch_input_reads )
 
     // getting all raw fastqc output files into one channel
     RAW_FASTQC.out.fastqc | map { it -> [ it[1], it[2]] } |
@@ -70,8 +72,18 @@ workflow {
     // multiqc on raw fastqc outputs
     RAW_MULTIQC( ch_raw_mqc_inputs )
 
-
     // quality trimming/filtering input reads
     TRIMGALORE( ch_input_reads )
+
+
+    // fastqc on trimmed reads
+    TRIMMED_FASTQC( TRIMGALORE.out.reads )
+
+    // getting all trimmed fastqc output files into one channel
+    TRIMMED_FASTQC.out.fastqc | map { it -> [ it[1], it[2]] } |
+                                flatten | collect | set { ch_trimmed_mqc_inputs }
+
+    // multiqc on raw fastqc outputs
+    TRIMMED_MULTIQC( ch_trimmed_mqc_inputs )
 
 }
