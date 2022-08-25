@@ -51,14 +51,17 @@ process MULTIQC {
 
 process TRIMGALORE {
 
-    debug true
-
     tag "trimgalore on: $name"
 
     publishDir params.filtered_reads_dir, mode: 'link'
 
     input:
         tuple val(name), path(reads)
+
+    output:
+        tuple val(name), path("${ name }*trimmed.fastq.gz"), emit: reads
+        path("${ name }*_trimming_report.txt"), emit: reports
+
 
     script:
     
@@ -68,11 +71,16 @@ process TRIMGALORE {
 
             if [ ${params.single_end} == 'true' ]; then
 
-                printf "    first lib type, single-end\n"
+                # trimming
+                trim_galore --cores 4 --gzip $reads
+
+                # renaming to our convention
+                mv ${name}_trimmed.fq.gz ${name}_trimmed.fastq.gz
 
             else
 
-                printf "    first lib type, paired-end\n"
+                printf "    first lib type, paired-end not yet setup!\n"
+                exit 1
 
             fi
         

@@ -60,18 +60,18 @@ workflow {
                      collectFile( name: 'samples.txt', newLine: true, storeDir: "./" ) |
                      set { ch_samples_txt }
 
-    // // raw fastqc on input reads
-    // RAW_FASTQC(ch_input_reads)
+    // raw fastqc on input reads
+    RAW_FASTQC(ch_input_reads)
 
-    // // getting all raw fastqc output files into one channel
-    // RAW_FASTQC.out.fastqc | map { it -> [ it[1], it[2]] } |
-    //                         flatten | collect | set { ch_raw_mqc_inputs }
+    // getting all raw fastqc output files into one channel
+    RAW_FASTQC.out.fastqc | map { it -> [ it[1], it[2]] } |
+                            flatten | collect | set { ch_raw_mqc_inputs }
 
-    // // multiqc on raw fastqc outputs
-    // RAW_MULTIQC( ch_raw_mqc_inputs )
+    // multiqc on raw fastqc outputs
+    RAW_MULTIQC( ch_raw_mqc_inputs )
 
 
     // quality trimming/filtering input reads
     TRIMGALORE( ch_input_reads )
-   
+
 }
