@@ -69,14 +69,11 @@ workflow {
     RAW_FASTQC.out.fastqc | map { it -> [ it[1], it[2]] } |
                             flatten | collect | set { ch_raw_mqc_inputs }
 
-    ch_raw_mqc_inputs | view
-
     // multiqc on raw fastqc outputs
     RAW_MULTIQC( ch_raw_mqc_inputs )
 
     // quality trimming/filtering input reads
     TRIMGALORE( ch_input_reads )
-
 
     // fastqc on trimmed reads
     TRIMMED_FASTQC( TRIMGALORE.out.reads )
@@ -85,11 +82,9 @@ workflow {
     TRIMMED_FASTQC.out.fastqc | map { it -> [ it[1], it[2]] } |
                                 flatten | collect | set { ch_trimmed_mqc_inputs }
 
-    ch_trimmed_mqc_inputs | view
+    // multiqc on raw fastqc outputs
+    TRIMMED_MULTIQC( ch_trimmed_mqc_inputs )
 
-    // // multiqc on raw fastqc outputs
-    // TRIMMED_MULTIQC( ch_trimmed_mqc_inputs )
-
-    // GEN_BISMARK_REF()
+    GEN_BISMARK_REF()
 
 }
