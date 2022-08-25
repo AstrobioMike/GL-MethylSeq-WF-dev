@@ -5,5 +5,5 @@ channels:
     - defaults
 dependencies:
     - bismark=0.23.1
-    - bowtie2=2.4.5
-    - samtools=1.15.1
+    - bowtie2=2.4.4
+    - samtools=1.13
