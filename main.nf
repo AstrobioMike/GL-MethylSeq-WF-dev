@@ -46,7 +46,7 @@ include { FASTQC as TRIMMED_FASTQC } from './modules/QC.nf' addParams(file_suffi
 include { MULTIQC as RAW_MULTIQC } from './modules/QC.nf' addParams(MQCLabel: "raw")
 include { MULTIQC as TRIMMED_MULTIQC } from './modules/QC.nf' addParams(MQCLabel: "trimmed")
 include { TRIMGALORE } from './modules/QC.nf'
-
+include { GEN_BISMARK_REF } from './modules/bismark.nf'
 
 ////////////////////////////////////////////////////
 /* --                WORKFLOW                  -- */
@@ -85,5 +85,7 @@ workflow {
 
     // multiqc on raw fastqc outputs
     TRIMMED_MULTIQC( ch_trimmed_mqc_inputs )
+
+    GEN_BISMARK_REF()
 
 }
