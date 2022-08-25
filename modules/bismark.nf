@@ -16,9 +16,7 @@ process GEN_BISMARK_REF {
     script:
 
         """
-        bismark -v
-        bowtie2 --version
-        samtools --version        
+        echo ""
         """
 
 }
