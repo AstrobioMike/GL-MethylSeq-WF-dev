@@ -23,8 +23,6 @@ process FASTQC {
 
 process MULTIQC {
 
-    debug true
-
     tag "On: ${ params.MQCLabel }"
 
     publishDir params.multiqc_outputs_dir, mode: 'link'

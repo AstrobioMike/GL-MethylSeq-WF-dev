@@ -52,6 +52,7 @@ include { GEN_BISMARK_REF } from './modules/bismark.nf'
 /* --                WORKFLOW                  -- */
 ////////////////////////////////////////////////////
 
+
 workflow {
 
     // detecting input reads and removing extensions from their unique sample names
@@ -85,6 +86,10 @@ workflow {
     // multiqc on raw fastqc outputs
     TRIMMED_MULTIQC( ch_trimmed_mqc_inputs )
 
-    GEN_BISMARK_REF()
+    // setting input reference fasta file channel
+    ch_input_ref = Channel.fromPath( params.genome, checkIfExists: true )
+    // ch_bismark_index_dir = Channel.fromPath( params.bismark_index )
+
+    GEN_BISMARK_REF( ch_input_ref )
 
 }

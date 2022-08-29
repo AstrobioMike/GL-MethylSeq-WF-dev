@@ -2,5 +2,6 @@
 results/
 work/
 MultiQC_Outputs/
+Bismark_Index/
 samples.txt
 Filtered_Sequence_Data/
