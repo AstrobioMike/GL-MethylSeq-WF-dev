@@ -55,8 +55,50 @@ process ALIGN {
 }
 
 
-// process DEDUPLICATE {
+process DEDUPLICATE {
+
+    tag "On: $name"
+
+    publishDir params.bismark_alignments_dir, mode: 'link'
+
+    input:
+        tuple val(name), path(bam_file)
+
+    output:
+        tuple val(name), path("${ name }_trimmed_bismark_*.bam"), emit: bams
+
+    script:
+
+        """
+        deduplicate_bismark ${bam_file}
+        """
+
+}
 
 
+process EXTRACT_METHYLATION_CALLS {
 
-// }
+    tag "On: $name"
+
+    publishDir params.bismark_methylation_calls_dir, mode: 'link', pattern: "*.gz"
+    publishDir params.bismark_methylation_calls_dir, mode: 'link', pattern: "*M-bias.txt"
+
+    input:
+        tuple val(name), path(bam_file)
+
+    output:
+        tuple val(name), path("${ name }*.cov.gz"), emit: covs
+        tuple val(name), path("${ name }*.bedGraph.gz"), emit: beds
+        tuple val(name), path("*${ name }*.txt.gz"), emit: contexts
+        tuple val(name), path("${ name }*.M-bias.txt"), emit: biases
+        path("${ name }*_report.txt"), emit: reports
+
+    script:
+
+        additional_args = params.single_end ? "" : "--ignore_r2 2 --ignore_3prime_r2 2"
+
+        """
+        bismark_methylation_extractor --bedGraph --gzip --comprehensive ${additional_args} ${bam_file}
+        """
+
+}

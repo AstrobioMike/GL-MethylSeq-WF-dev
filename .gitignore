@@ -2,7 +2,7 @@
 results/
 work/
 MultiQC_Outputs/
-Bismark_Index/
+Bismark*
 bismark-genome-preparation-output.txt
 samples.txt
 Filtered_Sequence_Data/

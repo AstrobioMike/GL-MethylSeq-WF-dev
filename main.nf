@@ -74,9 +74,7 @@ include { FASTQC as TRIMMED_FASTQC } from './modules/QC.nf' addParams( file_suff
 include { MULTIQC as RAW_MULTIQC } from './modules/QC.nf' addParams( MQCLabel: "raw" )
 include { MULTIQC as TRIMMED_MULTIQC } from './modules/QC.nf' addParams( MQCLabel: "trimmed" )
 include { TRIMGALORE } from './modules/QC.nf'
-include { GEN_BISMARK_REF } from './modules/bismark.nf'
-include { ALIGN } from './modules/bismark.nf'
-
+include { GEN_BISMARK_REF ; ALIGN ; DEDUPLICATE ; EXTRACT_METHYLATION_CALLS } from './modules/bismark.nf'
 
 ////////////////////////////////////////////////////
 /* --                WORKFLOW                  -- */
@@ -86,7 +84,7 @@ include { ALIGN } from './modules/bismark.nf'
 workflow {
 
     // detecting input reads and removing extensions from their unique sample names
-    ch_input_reads = Channel.fromFilePairs( params.input_reads, size: params.single_end ? 1 : 2 ) { file -> file.name.replaceAll( /.fastq.gz|.fq.gz/,'' ) }
+    ch_input_reads = Channel.fromFilePairs( input_file_list, size: params.single_end ? 1 : 2 ) { file -> file.name.replaceAll( /.fastq.gz|.fq.gz/,'' ) }
 
     // writing out unique sample names to file and setting to channel
     ch_input_reads | map { it -> it[0] } |
@@ -107,10 +105,9 @@ workflow {
     TRIMGALORE( ch_input_reads )
 
     // combinging trimming logs
-    TRIMGALORE.out.reports | 
-                           collectFile( name: "trimgalore-reports.txt", 
-                                        newLine: true, 
-                                        storeDir: params.filtered_reads_dir)
+    TRIMGALORE.out.reports | collectFile( name: "trimgalore-reports.txt", 
+                                          newLine: true, 
+                                          storeDir: params.filtered_reads_dir )
 
     // fastqc on trimmed reads
     TRIMMED_FASTQC( TRIMGALORE.out.reads )
@@ -131,23 +128,32 @@ workflow {
     // aligning 
     TRIMGALORE.out.reads | combine( GEN_BISMARK_REF.out.ch_bismark_index_dir ) | ALIGN
 
-    // combinging aligning logs
-    ALIGN.out.reports | 
-                           collectFile( name: "bismark-align-reports.txt", 
-                                        newLine: true, 
-                                        storeDir: params.bismark_alignments_dir)
+    // combinging aligning reports
+    ALIGN.out.reports | collectFile( name: "bismark-align-reports.txt", 
+                                     newLine: true, 
+                                     storeDir: params.bismark_alignments_dir )
 
-    // deduplicate only if not RRBS
+    // deduplicating only if *not RRBS    
+    if ( ! params.rrbs ) {
 
-    ALIGN.out.bams | view
-    
-    if ( params.rrbs ) {
+        DEDUPLICATE( ALIGN.out.bams )
 
-        println "DO IT"
+        // setting deduped bams to 'ch_bams'
+        DEDUPLICATE.out.bams | set { ch_bams }
 
     } else {
 
-        println "DON'T DO IT"
+        // setting non-deduped bams to 'ch_bams'
+        ALIGN.out.bams | set { ch_bams }
+
     }
+
+    // extracting methylation calls
+    EXTRACT_METHYLATION_CALLS( ch_bams )
+
+    // combinging methylation call reports
+    EXTRACT_METHYLATION_CALLS.out.reports | collectFile( name: "bismark-methylation-call-reports.txt", 
+                                                         newLine: true, 
+                                                         storeDir: params.bismark_methylation_calls_dir)
 
 }
