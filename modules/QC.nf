@@ -53,15 +53,14 @@ process TRIMGALORE {
 
     tag "On: $name"
 
-    publishDir params.filtered_reads_dir, mode: 'link'
+    publishDir params.filtered_reads_dir, mode: 'link', pattern: "${ name }_trimmed.*.gz"
 
     input:
         tuple val(name), path(reads)
 
     output:
-        tuple val(name), path("${ name }*trimmed.fastq.gz"), emit: reads
-        path("${ name }*_trimming_report.txt"), emit: reports
-
+        tuple val(name), path("${ name }_trimmed.*.gz"), emit: reads
+        path("${ name }*trimming_report.txt"), emit: reports
 
     script:
     

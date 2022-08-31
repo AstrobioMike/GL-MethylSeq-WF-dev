@@ -41,10 +41,10 @@ if ( params.lib_type !in params.accepted_lib_types ) {
 /* --                PROCESSES                 -- */
 ////////////////////////////////////////////////////
 
-include { FASTQC as RAW_FASTQC } from './modules/QC.nf' addParams(file_suffix: "")
-include { FASTQC as TRIMMED_FASTQC } from './modules/QC.nf' addParams(file_suffix: "_trimmed")
-include { MULTIQC as RAW_MULTIQC } from './modules/QC.nf' addParams(MQCLabel: "raw")
-include { MULTIQC as TRIMMED_MULTIQC } from './modules/QC.nf' addParams(MQCLabel: "trimmed")
+include { FASTQC as RAW_FASTQC } from './modules/QC.nf' addParams( file_suffix: "" )
+include { FASTQC as TRIMMED_FASTQC } from './modules/QC.nf' addParams( file_suffix: "_trimmed" )
+include { MULTIQC as RAW_MULTIQC } from './modules/QC.nf' addParams( MQCLabel: "raw" )
+include { MULTIQC as TRIMMED_MULTIQC } from './modules/QC.nf' addParams( MQCLabel: "trimmed" )
 include { TRIMGALORE } from './modules/QC.nf'
 include { GEN_BISMARK_REF } from './modules/bismark.nf'
 
@@ -76,6 +76,12 @@ workflow {
     // quality trimming/filtering input reads
     TRIMGALORE( ch_input_reads )
 
+    // combinging trimming logs
+    TRIMGALORE.out.reports | 
+                           collectFile( name: "trimgalore-reports.txt", 
+                                        newLine: true, 
+                                        storeDir: params.filtered_reads_dir)
+
     // fastqc on trimmed reads
     TRIMMED_FASTQC( TRIMGALORE.out.reads )
 
@@ -88,8 +94,11 @@ workflow {
 
     // setting input reference fasta file channel
     ch_input_ref = Channel.fromPath( params.genome, checkIfExists: true )
-    // ch_bismark_index_dir = Channel.fromPath( params.bismark_index )
 
+    // making bismark index    
     GEN_BISMARK_REF( ch_input_ref )
+
+    // // aligning 
+    // ALIGN( TRIMGALORE.out.reads, GEN_BISMARK_REF.out.ch_bismark_index_dir )
 
 }
