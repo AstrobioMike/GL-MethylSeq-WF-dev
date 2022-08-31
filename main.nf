@@ -25,7 +25,7 @@ if (params.help) {
 /* --            PRE-FLIGHT CHECKS             -- */
 ////////////////////////////////////////////////////
 
-// checking lib_type set in nextflow.config
+/* **** checking lib_type set in nextflow.config **** */
 if ( params.lib_type !in params.accepted_lib_types ) {
 
     println "\n    ${RED}No suitable 'lib_type' was set in nextflow.config.${NC}"
@@ -35,10 +35,38 @@ if ( params.lib_type !in params.accepted_lib_types ) {
 
 }
 
+/* **** checking specified input_reads_dir exists **** */
+if ( ! file( params.input_reads_dir ).exists() ) {
+
+    println "\n    ${RED}The specified '${params.input_reads_dir}' directory set in nextflow.config can't be found.${NC}"
+    println "    Exiting for now.\n"
+
+    exit 1
+
+}
+
+/* **** checking for gzipped reads (anything ending with fq.gz or fastq.gz) **** */
+// creating and adding files to list
+input_file_list = []
+file(params.input_reads_dir).eachFileMatch(~/.*fastq.gz|.*.fq.gz/) { target_file ->
+
+    input_file_list << target_file
+
+}
+
+// exiting and reporting if none found
+if ( input_file_list.size() == 0 ) {
+
+    println "\n    ${RED}No gzipped fastq files were found in the specified ${params.input_reads_dir} directory set in nextflow.config.${NC}"
+    println "    Exiting for now.\n"
+
+    exit 1
+
+}
 
 
 ////////////////////////////////////////////////////
-/* --                PROCESSES                 -- */
+/* --            PROCESSES INCLUDED            -- */
 ////////////////////////////////////////////////////
 
 include { FASTQC as RAW_FASTQC } from './modules/QC.nf' addParams( file_suffix: "" )
@@ -47,6 +75,8 @@ include { MULTIQC as RAW_MULTIQC } from './modules/QC.nf' addParams( MQCLabel: "
 include { MULTIQC as TRIMMED_MULTIQC } from './modules/QC.nf' addParams( MQCLabel: "trimmed" )
 include { TRIMGALORE } from './modules/QC.nf'
 include { GEN_BISMARK_REF } from './modules/bismark.nf'
+include { ALIGN } from './modules/bismark.nf'
+
 
 ////////////////////////////////////////////////////
 /* --                WORKFLOW                  -- */
@@ -98,7 +128,26 @@ workflow {
     // making bismark index    
     GEN_BISMARK_REF( ch_input_ref )
 
-    // // aligning 
-    // ALIGN( TRIMGALORE.out.reads, GEN_BISMARK_REF.out.ch_bismark_index_dir )
+    // aligning 
+    TRIMGALORE.out.reads | combine( GEN_BISMARK_REF.out.ch_bismark_index_dir ) | ALIGN
+
+    // combinging aligning logs
+    ALIGN.out.reports | 
+                           collectFile( name: "bismark-align-reports.txt", 
+                                        newLine: true, 
+                                        storeDir: params.bismark_alignments_dir)
+
+    // deduplicate only if not RRBS
+
+    ALIGN.out.bams | view
+    
+    if ( params.rrbs ) {
+
+        println "DO IT"
+
+    } else {
+
+        println "DON'T DO IT"
+    }
 
 }
