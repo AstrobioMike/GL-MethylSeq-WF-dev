@@ -130,16 +130,19 @@ process GEN_BISMARK_SUMMARY {
 
     debug true
 
+    publishDir params.bismark_summary_dir, mode: 'link', pattern: "bismark_summary_report.*"
+
     input:
         file(all_bams_and_reports)
 
-    // output:
-    //     tuple val(name), path("${ name }*_report.html"), emit: reports
+    output:
+        tuple path("bismark_summary_report.html"), path("bismark_summary_report.txt"), emit: reports
 
     script:
 
         // for some annoying reason bismark2summary expects the base filename of the ALIGN reports to have deduplicated in them, 
-        // even though they wouldn't yet at this point because the deduplication happens to the bam files, which is after that
+        // even though they wouldn't yet at this point because the deduplication happens to the bam files, i posted an issue here:
+        // https://github.com/FelixKrueger/Bismark/issues/520
 
 
         """
