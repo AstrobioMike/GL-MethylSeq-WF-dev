@@ -41,7 +41,7 @@ process ALIGN {
 
     output:
         tuple val(name), path("${ name }_trimmed_bismark_*.bam"), emit: bams
-        path("${ name }_trimmed_bismark_*_report.txt"), emit: reports
+        tuple val(name), path("${ name }_trimmed_bismark_*_report.txt"), emit: reports
 
     script:
 
@@ -59,13 +59,14 @@ process DEDUPLICATE {
 
     tag "On: $name"
 
-    publishDir params.bismark_alignments_dir, mode: 'link'
+    publishDir params.bismark_alignments_dir, mode: 'link', pattern: "${ name }_trimmed_bismark_*.bam"
 
     input:
         tuple val(name), path(bam_file)
 
     output:
         tuple val(name), path("${ name }_trimmed_bismark_*.bam"), emit: bams
+        tuple val(name), path("${ name }*_report.txt"), emit: reports
 
     script:
 
@@ -91,7 +92,7 @@ process EXTRACT_METHYLATION_CALLS {
         tuple val(name), path("${ name }*.bedGraph.gz"), emit: beds
         tuple val(name), path("*${ name }*.txt.gz"), emit: contexts
         tuple val(name), path("${ name }*.M-bias.txt"), emit: biases
-        path("${ name }*_report.txt"), emit: reports
+        tuple val(name), path("${ name }*_report.txt"), emit: reports
 
     script:
 
@@ -99,6 +100,50 @@ process EXTRACT_METHYLATION_CALLS {
 
         """
         bismark_methylation_extractor --bedGraph --gzip --comprehensive ${additional_args} ${bam_file}
+        """
+
+}
+
+
+process GEN_BISMARK_SAMPLE_REPORT {
+
+    tag "On: $name"
+
+    input:
+        tuple val(name), path(alignment_report), path(meth_calls_report), path(m_bias_report), file(dedupe_report)
+
+    output:
+        tuple val(name), path("${ name }*_report.html"), emit: reports
+
+    script:
+
+        additional_args = params.rrbs ? "" : "--dedup_report ${dedupe_report}"
+
+        """
+        bismark2report --alignment_report ${alignment_report} --splitting_report ${meth_calls_report} --mbias_report ${m_bias_report} ${additional_args}
+        """
+
+}
+
+
+process GEN_BISMARK_SUMMARY {
+
+    debug true
+
+    input:
+        file(all_bams_and_reports)
+
+    // output:
+    //     tuple val(name), path("${ name }*_report.html"), emit: reports
+
+    script:
+
+        // for some annoying reason bismark2summary expects the base filename of the ALIGN reports to have deduplicated in them, 
+        // even though they wouldn't yet at this point because the deduplication happens to the bam files, which is after that
+
+
+        """
+        bismark2summary *.bam
         """
 
 }

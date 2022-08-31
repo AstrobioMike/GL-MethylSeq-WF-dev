@@ -60,7 +60,7 @@ process TRIMGALORE {
 
     output:
         tuple val(name), path("${ name }_trimmed.*.gz"), emit: reads
-        path("${ name }*trimming_report.txt"), emit: reports
+        tuple val(name), path("${ name }*trimming_report.txt"), emit: reports
 
     script:
     

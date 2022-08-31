@@ -74,7 +74,9 @@ include { FASTQC as TRIMMED_FASTQC } from './modules/QC.nf' addParams( file_suff
 include { MULTIQC as RAW_MULTIQC } from './modules/QC.nf' addParams( MQCLabel: "raw" )
 include { MULTIQC as TRIMMED_MULTIQC } from './modules/QC.nf' addParams( MQCLabel: "trimmed" )
 include { TRIMGALORE } from './modules/QC.nf'
-include { GEN_BISMARK_REF ; ALIGN ; DEDUPLICATE ; EXTRACT_METHYLATION_CALLS } from './modules/bismark.nf'
+include { GEN_BISMARK_REF ; ALIGN ; DEDUPLICATE ; 
+          EXTRACT_METHYLATION_CALLS ; GEN_BISMARK_SAMPLE_REPORT ;
+          GEN_BISMARK_SUMMARY } from './modules/bismark.nf'
 
 ////////////////////////////////////////////////////
 /* --                WORKFLOW                  -- */
@@ -105,15 +107,16 @@ workflow {
     TRIMGALORE( ch_input_reads )
 
     // combinging trimming logs
-    TRIMGALORE.out.reports | collectFile( name: "trimgalore-reports.txt", 
+    TRIMGALORE.out.reports | map { it -> it[1] } | 
+                             collectFile( name: "trimgalore-reports.txt", 
                                           newLine: true, 
                                           storeDir: params.filtered_reads_dir )
 
-    // fastqc on trimmed reads
+    // // fastqc on trimmed reads
     TRIMMED_FASTQC( TRIMGALORE.out.reads )
 
     // getting all trimmed fastqc output files into one channel
-    TRIMMED_FASTQC.out.fastqc | map { it -> [ it[1], it[2]] } |
+    TRIMMED_FASTQC.out.fastqc | map { it -> [ it[1], it[2] ] } |
                                 flatten | collect | set { ch_trimmed_mqc_inputs }
 
     // multiqc on raw fastqc outputs
@@ -129,7 +132,8 @@ workflow {
     TRIMGALORE.out.reads | combine( GEN_BISMARK_REF.out.ch_bismark_index_dir ) | ALIGN
 
     // combinging aligning reports
-    ALIGN.out.reports | collectFile( name: "bismark-align-reports.txt", 
+    ALIGN.out.reports | map { it -> it[1] } | 
+                        collectFile( name: "bismark-align-reports.txt", 
                                      newLine: true, 
                                      storeDir: params.bismark_alignments_dir )
 
@@ -141,19 +145,58 @@ workflow {
         // setting deduped bams to 'ch_bams'
         DEDUPLICATE.out.bams | set { ch_bams }
 
+        // combining dedupe reports
+        DEDUPLICATE.out.reports | map { it -> it[1] } | 
+                                  collectFile( name: "bismark-dedupe-reports.txt", 
+                                               newLine: true, 
+                                               storeDir: params.bismark_alignments_dir )
+
+        // setting deduped reports channel to 'ch_dedupe_reports'
+        DEDUPLICATE.out.reports | set { ch_dedupe_reports }
+    
+
     } else {
 
         // setting non-deduped bams to 'ch_bams'
         ALIGN.out.bams | set { ch_bams }
 
+        // creating empty channel for dedupe reports
+        ALIGN.out.bams | map { it -> [ it[0], '' ] } | set { ch_dedupe_reports }
+
     }
+
 
     // extracting methylation calls
     EXTRACT_METHYLATION_CALLS( ch_bams )
 
     // combinging methylation call reports
-    EXTRACT_METHYLATION_CALLS.out.reports | collectFile( name: "bismark-methylation-call-reports.txt", 
+    EXTRACT_METHYLATION_CALLS.out.reports | map { it -> it[1] } | 
+                                            collectFile( name: "bismark-methylation-call-reports.txt", 
                                                          newLine: true, 
-                                                         storeDir: params.bismark_methylation_calls_dir)
+                                                         storeDir: params.bismark_methylation_calls_dir )
+
+
+    // ALIGN.out.reports | join( EXTRACT_METHYLATION_CALLS.out.reports ) | 
+    //                     join( EXTRACT_METHYLATION_CALLS.out.biases ) |
+    //                     join( ch_dedupe_reports ) | set { ch_all_sample_reports }
+
+    // putting all individual sample reports into one channel
+    ch_all_sample_reports = ALIGN.out.reports | join( EXTRACT_METHYLATION_CALLS.out.reports ) | 
+                                                join( EXTRACT_METHYLATION_CALLS.out.biases ) |
+                                                join( ch_dedupe_reports )
+
+    // ch_all_sample_reports | view
+
+    // generating individual sample bismark reports
+    GEN_BISMARK_SAMPLE_REPORT( ch_all_sample_reports )
+
+    // making channel holding all input files for bismark2summary (bam files, align reports, splitting reports, dedupe reports)
+    // the program needs them to all be in the same directory (can't specifically point to them...)
+    // maybe i can softlink them all to the working directory first
+    ch_bams_and_all_reports = ch_bams | join( ch_all_sample_reports ) | map { it -> it[ 1..it.size() - 1 ] } | collect
+
+    // making overall bismark summary 
+        // problem with this for now, see issue i posted here: https://github.com/FelixKrueger/Bismark/issues/520
+    GEN_BISMARK_SUMMARY( ch_bams_and_all_reports )
 
 }
