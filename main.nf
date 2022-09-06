@@ -73,15 +73,15 @@ include { FASTQC as RAW_FASTQC } from './modules/QC.nf' addParams( file_suffix: 
 include { FASTQC as TRIMMED_FASTQC } from './modules/QC.nf' addParams( file_suffix: "_trimmed" )
 include { MULTIQC as RAW_MULTIQC } from './modules/QC.nf' addParams( MQCLabel: "raw" )
 include { MULTIQC as TRIMMED_MULTIQC } from './modules/QC.nf' addParams( MQCLabel: "trimmed" )
-include { TRIMGALORE } from './modules/QC.nf'
+include { TRIMGALORE ; ALIGNMENT_QC } from './modules/QC.nf'
 include { GEN_BISMARK_REF ; ALIGN ; DEDUPLICATE ; 
           EXTRACT_METHYLATION_CALLS ; GEN_BISMARK_SAMPLE_REPORT ;
           GEN_BISMARK_SUMMARY } from './modules/bismark.nf'
 
+
 ////////////////////////////////////////////////////
 /* --                WORKFLOW                  -- */
 ////////////////////////////////////////////////////
-
 
 workflow {
 
@@ -165,7 +165,6 @@ workflow {
 
     }
 
-
     // extracting methylation calls
     EXTRACT_METHYLATION_CALLS( ch_bams )
 
@@ -175,17 +174,10 @@ workflow {
                                                          newLine: true, 
                                                          storeDir: params.bismark_methylation_calls_dir )
 
-
-    // ALIGN.out.reports | join( EXTRACT_METHYLATION_CALLS.out.reports ) | 
-    //                     join( EXTRACT_METHYLATION_CALLS.out.biases ) |
-    //                     join( ch_dedupe_reports ) | set { ch_all_sample_reports }
-
     // putting all individual sample reports into one channel
     ch_all_sample_reports = ALIGN.out.reports | join( EXTRACT_METHYLATION_CALLS.out.reports ) | 
                                                 join( EXTRACT_METHYLATION_CALLS.out.biases ) |
                                                 join( ch_dedupe_reports )
-
-    // ch_all_sample_reports | view
 
     // generating individual sample bismark reports
     GEN_BISMARK_SAMPLE_REPORT( ch_all_sample_reports )
@@ -199,5 +191,12 @@ workflow {
         // problem with this for now, see issue i posted here: https://github.com/FelixKrueger/Bismark/issues/520
         // ahh, bismark2summary needs the original bams to start with, passing them too now
     GEN_BISMARK_SUMMARY( ch_bams_and_all_reports, ALIGN.out.bams | collect )
+
+    // Alignment QC
+    ALIGNMENT_QC( ch_bams )
+
+    // generate multiqc project report
+        // MAYBE I CAN JUST PASS THE PROJECT DIR VARIABLE AS A CHANNEL TO GRAB EVERYTHING?
+    // PROJECT_MULTIQC()
 
 }

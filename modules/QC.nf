@@ -1,6 +1,5 @@
 /*
- * Processes related to sequence quality assessment,
- *   quality control (e.g. trimming).
+ * Processes related to quality assessment/quality control.
  */
 
 process FASTQC {
@@ -20,6 +19,7 @@ process FASTQC {
         """
 
 }
+
 
 process MULTIQC {
 
@@ -48,6 +48,7 @@ process MULTIQC {
         """
 
 }
+
 
 process TRIMGALORE {
 
@@ -93,4 +94,32 @@ process TRIMGALORE {
 
         fi
         """
+}
+
+
+process ALIGNMENT_QC {
+
+    tag "On: $name"
+
+    publishDir params.bismark_alignments_dir
+
+    input:
+        tuple val(name), path(bam_file)
+
+    output:
+        tuple val(name), path("${ name }*.sorted.bam"), emit: bams
+        path("${ name }*_qualimap")
+
+
+    script:
+    
+        out_bam_file_name = params.rrbs ? "${ name }_trimmed_bismark_bt2.sorted.bam" : "${ name }_trimmed_bismark_bt2.deduplicated.sorted.bam"
+        out_qualimap_dir = out_bam_file_name.replace(".bam", "_qualimap")
+
+        """
+        samtools sort -@ ${params.general_threads} -o ${out_bam_file_name} ${bam_file}
+
+        qualimap bamqc -bam ${out_bam_file_name} -outdir ${out_qualimap_dir} --collect-overlap-pairs --java-mem-size=${params.qualimap_java_mem_size} -nt ${params.general_threads}
+        """
+
 }
