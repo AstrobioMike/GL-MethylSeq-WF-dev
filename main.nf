@@ -197,6 +197,7 @@ workflow {
 
     // making overall bismark summary 
         // problem with this for now, see issue i posted here: https://github.com/FelixKrueger/Bismark/issues/520
-    GEN_BISMARK_SUMMARY( ch_bams_and_all_reports )
+        // ahh, bismark2summary needs the original bams to start with, passing them too now
+    GEN_BISMARK_SUMMARY( ch_bams_and_all_reports, ALIGN.out.bams | collect )
 
 }
