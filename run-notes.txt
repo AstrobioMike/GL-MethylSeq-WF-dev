@@ -1,0 +1,2 @@
+local run: nextflow run main.nf -profile conda,local
+gitpod run: nextflow run main.nf -profile docker
