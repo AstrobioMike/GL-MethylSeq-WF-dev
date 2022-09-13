@@ -1,0 +1,8 @@
+name: gtf-to-bed
+channels:
+    - conda-forge
+    - bioconda
+    - defaults
+dependencies:
+    - ucsc-gtftogenepred=377
+    - ucsc-genepredtobed=377

@@ -10,7 +10,7 @@ process FASTQC {
         tuple val(name), path(reads)
 
     output:
-        tuple val(name), path("${ name }${ params.file_suffix }_fastqc.zip"), path("${name}${ params.file_suffix }_fastqc.html"), emit: fastqc
+        tuple val(name), path("${ name }*${ params.file_suffix }_fastqc.zip"), path("${name}*${ params.file_suffix }_fastqc.html"), emit: fastqc
 
     script:
 
@@ -40,7 +40,7 @@ process MULTIQC {
 
         """
         multiqc --interactive -o ${ params.MQCLabel }_multiqc_report \
-                -n ${ params.MQCLabel }_multiqc mqc_in \
+                -n ${ params.MQCLabel }_multiqc --exclude snippy mqc_in/*
 
         mv ${ params.MQCLabel }_multiqc_report/${ params.MQCLabel }_multiqc.html .
         
@@ -75,7 +75,7 @@ process TRIMGALORE {
                 trim_galore --cores 4 --gzip $reads
 
                 # renaming to our convention
-                mv ${name}_trimmed.fq.gz ${name}_trimmed.fastq.gz
+                mv ${name}*_trimmed.fq.gz ${name}_trimmed.fastq.gz
 
             else
 

@@ -25,10 +25,28 @@ if (params.help) {
 /* --            PRE-FLIGHT CHECKS             -- */
 ////////////////////////////////////////////////////
 
+/* **** checking specified target_organism is available **** */
+if ( params.target_organism !in params.accepted_target_orgs ) {
+
+    println "\n    ${RED}No suitable 'target_organism' was set in nextflow.config file.${NC}"
+    println "\n    Currently available options are:\n"
+    for ( org in params.accepted_target_orgs ) {
+
+        println "        ${org}"
+
+    }
+
+    println "\n    Exiting for now.\n"
+
+    exit 1
+
+}
+
+
 /* **** checking lib_type set in nextflow.config **** */
 if ( params.lib_type !in params.accepted_lib_types ) {
 
-    println "\n    ${RED}No suitable 'lib_type' was set in nextflow.config.${NC}"
+    println "\n    ${RED}No suitable 'lib_type' was set in nextflow.config file.${NC}"
     println "    Exiting for now.\n"
 
     exit 1
@@ -64,6 +82,26 @@ if ( input_file_list.size() == 0 ) {
 
 }
 
+// Right now i can't get fastqc/multiqc to retain things like "_trimmed" in the filenames, so
+// things are getting collapsed if the input files don't end with "_raw".
+// Putting in a stop-gap for now that exits if the input files don't include "_raw":
+for ( input_file in input_file_list ) {
+
+    if ( ! input_file.toString().endsWith("_raw.fastq.gz") ) {
+        
+        if ( ! input_file.toString().endsWith("_raw.fq.gz") ) {
+
+            println "\n    ${RED}Currently the input read files need to have a suffix like '_raw.fastq.gz' or '_raw.fq.gz'.${NC}"
+            println "    Exiting for now.\n"
+
+            exit 1
+
+        }
+
+    }
+
+}
+
 
 ////////////////////////////////////////////////////
 /* --            PROCESSES INCLUDED            -- */
@@ -73,10 +111,13 @@ include { FASTQC as RAW_FASTQC } from './modules/QC.nf' addParams( file_suffix: 
 include { FASTQC as TRIMMED_FASTQC } from './modules/QC.nf' addParams( file_suffix: "_trimmed" )
 include { MULTIQC as RAW_MULTIQC } from './modules/QC.nf' addParams( MQCLabel: "raw" )
 include { MULTIQC as TRIMMED_MULTIQC } from './modules/QC.nf' addParams( MQCLabel: "trimmed" )
+include { MULTIQC as PROJECT_MULTIQC } from './modules/QC.nf' addParams( MQCLabel: "Project" )
 include { TRIMGALORE ; ALIGNMENT_QC } from './modules/QC.nf'
 include { GEN_BISMARK_REF ; ALIGN ; DEDUPLICATE ; 
           EXTRACT_METHYLATION_CALLS ; GEN_BISMARK_SAMPLE_REPORT ;
           GEN_BISMARK_SUMMARY } from './modules/bismark.nf'
+include { DOWNLOAD_REFERENCES ; GTF_TO_PRED ; 
+          PRED_TO_BED ; MAKE_GENE_TRANSCRIPT_MAP } from './modules/utilities.nf'
 
 
 ////////////////////////////////////////////////////
@@ -86,7 +127,7 @@ include { GEN_BISMARK_REF ; ALIGN ; DEDUPLICATE ;
 workflow {
 
     // detecting input reads and removing extensions from their unique sample names
-    ch_input_reads = Channel.fromFilePairs( input_file_list, size: params.single_end ? 1 : 2 ) { file -> file.name.replaceAll( /.fastq.gz|.fq.gz/,'' ) }
+    ch_input_reads = Channel.fromFilePairs( input_file_list, size: params.single_end ? 1 : 2 ) { file -> file.name.replaceAll( /.fastq.gz|.fq.gz|_raw.fastq.gz|_raw.fq.gz/, '' ) }
 
     // writing out unique sample names to file and setting to channel
     ch_input_reads | map { it -> it[0] } |
@@ -95,7 +136,7 @@ workflow {
 
     // raw fastqc on input reads
     RAW_FASTQC( ch_input_reads )
-
+    
     // getting all raw fastqc output files into one channel
     RAW_FASTQC.out.fastqc | map { it -> [ it[1], it[2]] } |
                             flatten | collect | set { ch_raw_mqc_inputs }
@@ -196,7 +237,32 @@ workflow {
     ALIGNMENT_QC( ch_bams )
 
     // generate multiqc project report
-        // MAYBE I CAN JUST PASS THE PROJECT DIR VARIABLE AS A CHANNEL TO GRAB EVERYTHING?
-    // PROJECT_MULTIQC()
+        // creating input channel holding all needed inputs for the project-level multiqc
+
+        // passing the projectDir variable as a channel to grab everything
+    full_project_dir_ch = Channel.fromPath( projectDir )
+
+        // adding additional needed channels
+    full_project_dir_ch | mix( ALIGN.out.reports |  map { it -> it[1] }, 
+                               EXTRACT_METHYLATION_CALLS.out.reports | map { it -> it[1] },
+                               ch_raw_mqc_inputs,
+                               ch_trimmed_mqc_inputs
+                             ) | 
+                          collect | set{ project_multiqc_in_ch }
+
+
+    PROJECT_MULTIQC( project_multiqc_in_ch )
+
+    // downloading reference information
+    DOWNLOAD_REFERENCES( params.target_organism, params.reference_table_url )
+
+    // converting GTF to BED
+    GTF_TO_PRED( DOWNLOAD_REFERENCES.out.gtf )
+    PRED_TO_BED( GTF_TO_PRED.out.pred )
+    
+    // making a mapping file of genes to transcripts (needed to link to functional annotations in primary output table)
+    MAKE_GENE_TRANSCRIPT_MAP( DOWNLOAD_REFERENCES.out.gtf )
+
+    // on to R next... need to look a lot at Jonathan's stuff
 
 }
