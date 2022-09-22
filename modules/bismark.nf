@@ -32,16 +32,16 @@ process GEN_BISMARK_REF {
 
 process ALIGN {
 
-    tag "On: $name"
+    tag "On: $meta.id"
 
-    publishDir params.bismark_alignments_dir, mode: 'link', pattern: "${ name }_trimmed_bismark_*.bam"
+    publishDir params.bismark_alignments_dir, mode: 'link', pattern: "${ meta.id }_trimmed_bismark_*.bam"
 
     input:
-        tuple val(name), path(reads), path( bismark_index_dir )
+        tuple val(meta), path(reads), path( bismark_index_dir )
 
     output:
-        tuple val(name), path("${ name }_trimmed_bismark_*.bam"), emit: bams
-        tuple val(name), path("${ name }_trimmed_bismark_*_report.txt"), emit: reports
+        tuple val(meta), path("${ meta.id }_trimmed_bismark_*.bam"), emit: bams
+        tuple val(meta), path("${ meta.id }_trimmed_bismark_*_report.txt"), emit: reports
 
     script:
 
@@ -49,7 +49,7 @@ process ALIGN {
         fastq_files = params.single_end ? reads : "-1 ${reads[0]} -2 ${reads[1]}"
 
         """
-        bismark --bam -p ${params.bismark_align_threads} --genome ${bismark_index_dir} ${fastq_files}
+        bismark --bam -p ${params.bismark_align_threads} --genome ${bismark_index_dir} ${non_directional} ${fastq_files}
         """
 
 }

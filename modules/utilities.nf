@@ -2,37 +2,95 @@
  * Processes for general utilities.
  */
 
-process DOWNLOAD_REFERENCES {
+// process DOWNLOAD_REFERENCES {
  
+//     publishDir params.ref_genome_dir, mode: 'link'
+
+//     // gets information from the table linked in nextflow.config under reference_table_url
+//     input:
+//         val(target_organism)
+//         val(target_url)
+
+//     output:
+//         path("*.fa"), emit: fasta
+//         path("*.gtf"), emit: gtf
+
+//     script:
+
+//         // reading reference table into memory
+//         def ref_tab = [:]
+
+//         target_url.toURL().splitEachLine(",") { fields -> ref_tab[fields[0]] = fields }
+
+//         fasta_url = ref_tab[target_organism][5]
+//         gtf_url = ref_tab[target_organism][6]
+
+//         """
+//         curl -LO ${fasta_url}
+//         curl -LO ${gtf_url}
+
+//         gunzip *.gz
+//         """
+
+// }
+
+
+process DOWNLOAD_GUNZIP_REFERENCES {
+
+    // Download and decompress genome and annotation files
+    tag "Organism: ${ organism_sci }  Ensembl Version: ${ensemblVersion}"
+    label 'networkBound'
+
     publishDir params.ref_genome_dir, mode: 'link'
 
-    // gets information from the table linked in nextflow.config under reference_table_url
     input:
-        val(target_organism)
-        val(target_url)
-
+        tuple val(organism_sci), val(fasta_url), val(gtf_url)
+        tuple val(ensemblVersion), val(ref_source)
+    
     output:
         path("*.fa"), emit: fasta
         path("*.gtf"), emit: gtf
 
     script:
+        // subsetting if specified
+        if ( params.genomeSubsample ) {
 
-        // reading reference table into memory
-        def ref_tab = [:]
+            """
+            curl -LO ${fasta_url}
+            curl -LO ${gtf_url}
 
-        target_url.toURL().splitEachLine(",") { fields -> ref_tab[fields[0]] = fields }
+            gunzip -f *.gz
 
-        fasta_url = ref_tab[target_organism][5]
-        gtf_url = ref_tab[target_organism][6]
+            # getting original file output names
+            out_fasta=\$(ls *.fa)
+            out_gtf=\$(ls *.gtf)
 
-        """
-        curl -LO ${fasta_url}
-        curl -LO ${gtf_url}
+            # subsampling each
+            samtools faidx \${out_fasta} ${ params.genomeSubsample } -o tmp.fa && mv tmp.fa \${out_fasta}
 
-        gunzip *.gz
-        """
+            grep '^#!' \${out_gtf} > tmp.gtf
+            grep '^${ params.genomeSubsample }\t' \${out_gtf} >> tmp.gtf
+            mv tmp.gtf \${out_gtf}
+
+            # removing index
+            rm *.fai
+            """
+
+            
+
+        } else {
+
+            """
+            curl -LO ${ fasta_url }
+            curl -LO ${ gtf_url }
+
+            gunzip -f *.gz
+            """
+
+        }
 
 }
+
 
 process GTF_TO_PRED {
 

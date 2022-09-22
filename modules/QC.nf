@@ -4,13 +4,13 @@
 
 process FASTQC {
 
-    tag "On: $name"
+    tag "On: $meta.id"
 
     input:
-        tuple val(name), path(reads)
+        tuple val(meta), path(reads)
 
     output:
-        tuple val(name), path("${ name }*${ params.file_suffix }_fastqc.zip"), path("${name}*${ params.file_suffix }_fastqc.html"), emit: fastqc
+        tuple val(meta), path("${ meta.id }*${ params.file_suffix }_fastqc.zip"), path("${ meta.id }*${ params.file_suffix }_fastqc.html"), emit: fastqc
 
     script:
 
@@ -40,7 +40,8 @@ process MULTIQC {
 
         """
         multiqc --interactive -o ${ params.MQCLabel }_multiqc_report \
-                -n ${ params.MQCLabel }_multiqc --exclude snippy mqc_in/*
+                -n ${ params.MQCLabel }_multiqc \
+                --config ${ params.multiqc_config } mqc_in/*
 
         mv ${ params.MQCLabel }_multiqc_report/${ params.MQCLabel }_multiqc.html .
         
@@ -52,16 +53,16 @@ process MULTIQC {
 
 process TRIMGALORE {
 
-    tag "On: $name"
+    tag "On: $meta.id"
 
-    publishDir params.filtered_reads_dir, mode: 'link', pattern: "${ name }_trimmed.*.gz"
+    publishDir params.filtered_reads_dir, mode: 'link', pattern: "${ meta.id }_trimmed.*.gz"
 
     input:
-        tuple val(name), path(reads)
+        tuple val(meta), path(reads)
 
     output:
-        tuple val(name), path("${ name }_trimmed.*.gz"), emit: reads
-        tuple val(name), path("${ name }*trimming_report.txt"), emit: reports
+        tuple val(meta), path("${ meta.id }_trimmed.*.gz"), emit: reads
+        tuple val(meta), path("${ meta.id }*trimming_report.txt"), emit: reports
 
     script:
     
@@ -75,7 +76,7 @@ process TRIMGALORE {
                 trim_galore --cores 4 --gzip $reads
 
                 # renaming to our convention
-                mv ${name}*_trimmed.fq.gz ${name}_trimmed.fastq.gz
+                mv ${meta.id}*_trimmed.fq.gz ${meta.id}_trimmed.fastq.gz
 
             else
 
@@ -99,21 +100,21 @@ process TRIMGALORE {
 
 process ALIGNMENT_QC {
 
-    tag "On: $name"
+    tag "On: $meta.id"
 
     publishDir params.bismark_alignments_dir
 
     input:
-        tuple val(name), path(bam_file)
+        tuple val(meta), path(bam_file)
 
     output:
-        tuple val(name), path("${ name }*.sorted.bam"), emit: bams
-        path("${ name }*_qualimap")
+        tuple val(meta), path("${ meta.id }*.sorted.bam"), emit: bams
+        path("${ meta.id }*_qualimap")
 
 
     script:
     
-        out_bam_file_name = params.rrbs ? "${ name }_trimmed_bismark_bt2.sorted.bam" : "${ name }_trimmed_bismark_bt2.deduplicated.sorted.bam"
+        out_bam_file_name = params.rrbs ? "${ meta.id }_trimmed_bismark_bt2.sorted.bam" : "${ meta.id }_trimmed_bismark_bt2.deduplicated.sorted.bam"
         out_qualimap_dir = out_bam_file_name.replace(".bam", "_qualimap")
 
         """
