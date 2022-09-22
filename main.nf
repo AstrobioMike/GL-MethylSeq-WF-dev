@@ -154,7 +154,7 @@ include { FASTQC as RAW_FASTQC } from './modules/QC.nf' addParams( file_suffix: 
 include { FASTQC as TRIMMED_FASTQC } from './modules/QC.nf' addParams( file_suffix: "_trimmed" )
 include { MULTIQC as RAW_MULTIQC } from './modules/QC.nf' addParams( MQCLabel: "raw" )
 include { MULTIQC as TRIMMED_MULTIQC } from './modules/QC.nf' addParams( MQCLabel: "trimmed" )
-include { MULTIQC as PROJECT_MULTIQC } from './modules/QC.nf' addParams( MQCLabel: "Project" )
+include { MULTIQC as PROJECT_MULTIQC } from './modules/QC.nf' addParams( MQCLabel: "project" )
 include { TRIMGALORE ; ALIGNMENT_QC } from './modules/QC.nf'
 include { PARSE_ANNOTATIONS_TABLE } from './modules/genelab.nf'
 include { DOWNLOAD_GUNZIP_REFERENCES ; GTF_TO_PRED ; 
@@ -203,10 +203,8 @@ workflow {
     // storing general info to ch_meta
     STAGING.out.raw_reads | first | 
                             map { it -> it[0] } |
-                            view { meta -> "${YELLOW} Autodetected Processing Metadata:\n\t pairedEND: ${meta.paired_end}\n\t organism: ${meta.organism_sci}${NC}" } |
+                            view { meta -> "${YELLOW}  Autodetected Processing Metadata:\n\t pairedEND: ${meta.paired_end}\n\t organism: ${meta.organism_sci}${NC}" } |
                             set { ch_meta }
-
-    // ch_meta | view
 
     // // // detecting input reads and removing extensions from their unique sample names
     // // ch_input_reads = Channel.fromFilePairs( input_file_list, size: params.single_end ? 1 : 2 ) { file -> file.name.replaceAll( /.fastq.gz|.fq.gz|_raw.fastq.gz|_raw.fq.gz/, '' ) }
@@ -218,37 +216,37 @@ workflow {
 
     
 
-    // // raw fastqc on input reads
-    // RAW_FASTQC( ch_input_reads )
+    // raw fastqc on input reads
+    RAW_FASTQC( ch_input_reads )
     
-    // // getting all raw fastqc output files into one channel
-    // RAW_FASTQC.out.fastqc | map { it -> [ it[1], it[2]] } |
-    //                         flatten | collect | set { ch_raw_mqc_inputs }
+    // getting all raw fastqc output files into one channel
+    RAW_FASTQC.out.fastqc | map { it -> [ it[1], it[2]] } |
+                            flatten | collect | set { ch_raw_mqc_inputs }
 
-    // // setting channel for multiqc config file
-    // ch_multiqc_config = Channel.fromPath( params.multiqc_config )
+    // setting channel for multiqc config file
+    ch_multiqc_config = Channel.fromPath( params.multiqc_config )
 
-    // // multiqc on raw fastqc outputs
-    // RAW_MULTIQC( ch_raw_mqc_inputs )
+    // multiqc on raw fastqc outputs
+    RAW_MULTIQC( ch_raw_mqc_inputs )
 
-    // // quality trimming/filtering input reads
-    // TRIMGALORE( ch_input_reads )
+    // quality trimming/filtering input reads
+    TRIMGALORE( ch_input_reads )
 
-    // // combinging trimming logs
-    // TRIMGALORE.out.reports | map { it -> it[1] } | 
-    //                          collectFile( name: "trimgalore-reports.txt", 
-    //                                       newLine: true, 
-    //                                       storeDir: params.filtered_reads_dir )
+    // combinging trimming logs
+    TRIMGALORE.out.reports | map { it -> it[1] } | 
+                             collectFile( name: "trimgalore-reports.txt", 
+                                          newLine: true, 
+                                          storeDir: params.filtered_reads_dir )
 
-    // // // fastqc on trimmed reads
-    // TRIMMED_FASTQC( TRIMGALORE.out.reads )
+    // // fastqc on trimmed reads
+    TRIMMED_FASTQC( TRIMGALORE.out.reads )
 
-    // // getting all trimmed fastqc output files into one channel
-    // TRIMMED_FASTQC.out.fastqc | map { it -> [ it[1], it[2] ] } |
-    //                             flatten | collect | set { ch_trimmed_mqc_inputs }
+    // getting all trimmed fastqc output files into one channel
+    TRIMMED_FASTQC.out.fastqc | map { it -> [ it[1], it[2] ] } |
+                                flatten | collect | set { ch_trimmed_mqc_inputs }
 
-    // // multiqc on raw fastqc outputs
-    // TRIMMED_MULTIQC( ch_trimmed_mqc_inputs )
+    // multiqc on raw fastqc outputs
+    TRIMMED_MULTIQC( ch_trimmed_mqc_inputs )
 
     // // // setting input reference fasta file channel
     // // ch_input_ref = Channel.fromPath( params.genome, checkIfExists: true )
@@ -265,100 +263,111 @@ workflow {
     // making bismark index from provided input fasta
     GEN_BISMARK_REF( ch_input_ref )
 
-    // // making bismark index from standard ref
-    // GEN_BISMARK_REF( DOWNLOAD_GUNZIP_REFERENCES.out )
+    // aligning 
+    TRIMGALORE.out.reads | combine( GEN_BISMARK_REF.out.ch_bismark_index_dir ) | ALIGN
 
-    // // aligning 
-    // TRIMGALORE.out.reads | combine( GEN_BISMARK_REF.out.ch_bismark_index_dir ) | ALIGN
+    // combinging aligning reports
+    ALIGN.out.reports | map { it -> it[1] } | 
+                        collectFile( name: "bismark-align-reports.txt", 
+                                     newLine: true, 
+                                     storeDir: params.bismark_alignments_dir )
 
-    // // combinging aligning reports
-    // ALIGN.out.reports | map { it -> it[1] } | 
-    //                     collectFile( name: "bismark-align-reports.txt", 
-    //                                  newLine: true, 
-    //                                  storeDir: params.bismark_alignments_dir )
+    // deduplicating only if *not* RRBS    
+    if ( ! params.rrbs ) {
 
-    // // deduplicating only if *not RRBS    
-    // if ( ! params.rrbs ) {
+        DEDUPLICATE( ALIGN.out.bams )
 
-    //     DEDUPLICATE( ALIGN.out.bams )
+        // setting deduped bams to 'ch_bams'
+        DEDUPLICATE.out.bams | set { ch_bams_to_extract_from }
 
-    //     // setting deduped bams to 'ch_bams'
-    //     DEDUPLICATE.out.bams | set { ch_bams }
+        // setting channel holding initial bams
+        ALIGN.out.bams | set { ch_initial_bams }
 
-    //     // combining dedupe reports
-    //     DEDUPLICATE.out.reports | map { it -> it[1] } | 
-    //                               collectFile( name: "bismark-dedupe-reports.txt", 
-    //                                            newLine: true, 
-    //                                            storeDir: params.bismark_alignments_dir )
+        // combining dedupe reports
+        DEDUPLICATE.out.reports | map { it -> it[1] } | 
+                                  collectFile( name: "bismark-dedupe-reports.txt", 
+                                               newLine: true, 
+                                               storeDir: params.bismark_alignments_dir )
 
-    //     // setting deduped reports channel to 'ch_dedupe_reports'
-    //     DEDUPLICATE.out.reports | set { ch_dedupe_reports }
+        // setting deduped reports channel to 'ch_dedupe_reports'
+        DEDUPLICATE.out.reports | set { ch_dedupe_reports }
     
 
-    // } else {
+    } else {
 
-    //     // setting non-deduped bams to 'ch_bams'
-    //     ALIGN.out.bams | set { ch_bams }
+        // setting channel holding initial bams
+        ALIGN.out.bams | set { ch_bams_to_extract_from }
 
-    //     // creating empty channel for dedupe reports
-    //     ALIGN.out.bams | map { it -> [ it[0], '' ] } | set { ch_dedupe_reports }
+        // creating empty channel for dedupe reports and deduped bams
+        ALIGN.out.bams | map { it -> [ it[0], '' ] } | set { ch_dedupe_reports }
 
-    // }
+    }
 
-    // // extracting methylation calls
-    // EXTRACT_METHYLATION_CALLS( ch_bams )
+    // extracting methylation calls
+    EXTRACT_METHYLATION_CALLS( ch_bams_to_extract_from )
 
-    // // combinging methylation call reports
-    // EXTRACT_METHYLATION_CALLS.out.reports | map { it -> it[1] } | 
-    //                                         collectFile( name: "bismark-methylation-call-reports.txt", 
-    //                                                      newLine: true, 
-    //                                                      storeDir: params.bismark_methylation_calls_dir )
+    // combinging methylation call reports
+    EXTRACT_METHYLATION_CALLS.out.reports | map { it -> it[1] } | 
+                                            collectFile( name: "bismark-methylation-call-reports.txt", 
+                                                         newLine: true, 
+                                                         storeDir: params.bismark_methylation_calls_dir )
 
-    // // putting all individual sample reports into one channel
-    // ch_all_sample_reports = ALIGN.out.reports | join( EXTRACT_METHYLATION_CALLS.out.reports ) | 
-    //                                             join( EXTRACT_METHYLATION_CALLS.out.biases ) |
-    //                                             join( ch_dedupe_reports )
+    // putting all individual sample reports into one channel
+    ch_all_sample_reports = ALIGN.out.reports | join( EXTRACT_METHYLATION_CALLS.out.reports ) | 
+                                                join( EXTRACT_METHYLATION_CALLS.out.biases ) |
+                                                join( ch_dedupe_reports )
 
-    // // generating individual sample bismark reports
-    // GEN_BISMARK_SAMPLE_REPORT( ch_all_sample_reports )
+    // generating individual sample bismark reports
+    GEN_BISMARK_SAMPLE_REPORT( ch_all_sample_reports )
 
-    // // making channel holding all input files for bismark2summary (bam files, align reports, splitting reports, dedupe reports)
-    // // the program needs them to all be in the same directory (can't specifically point to them...)
-    // // maybe i can softlink them all to the working directory first
-    // ch_bams_and_all_reports = ch_bams | join( ch_all_sample_reports ) | map { it -> it[ 1..it.size() - 1 ] } | collect
+    // making channel holding all input files for bismark2summary (bam files, align reports, splitting reports, dedupe reports)
+    ch_bams_and_all_reports = ch_bams_to_extract_from | join( ch_all_sample_reports ) | map { it -> it[ 1..it.size() - 1 ] } | collect
 
-    // // making overall bismark summary 
-    //     // problem with this for now, see issue i posted here: https://github.com/FelixKrueger/Bismark/issues/520
-    //     // ahh, bismark2summary needs the original bams to start with, passing them too now
-    // GEN_BISMARK_SUMMARY( ch_bams_and_all_reports, ALIGN.out.bams | collect )
-
-    // // Alignment QC
-    // ALIGNMENT_QC( ch_bams )
-
-    // // generate multiqc project report
-    //     // creating input channel holding all needed inputs for the project-level multiqc
-
-    //     // passing the projectDir variable as a channel to grab everything
-    // full_project_dir_ch = Channel.fromPath( projectDir )
-
-    //     // adding additional needed channels
-    // full_project_dir_ch | mix( ALIGN.out.reports |  map { it -> it[1] }, 
-    //                            EXTRACT_METHYLATION_CALLS.out.reports | map { it -> it[1] },
-    //                            ch_raw_mqc_inputs,
-    //                            ch_trimmed_mqc_inputs
-    //                          ) | 
-    //                       collect | set{ project_multiqc_in_ch }
-
-
-    // PROJECT_MULTIQC( project_multiqc_in_ch )
-
-
-    // // converting GTF to BED
-    // GTF_TO_PRED( DOWNLOAD_REFERENCES.out.gtf )
-    // PRED_TO_BED( GTF_TO_PRED.out.pred )
+    // making overall bismark summary 
+        // problem with this for now, see issue i posted here: https://github.com/FelixKrueger/Bismark/issues/520
+            // ahh, bismark2summary needs the original bams to start with, passing them too now
     
-    // // making a mapping file of genes to transcripts (needed to link to functional annotations in primary output table)
-    // MAKE_GENE_TRANSCRIPT_MAP( DOWNLOAD_REFERENCES.out.gtf )
+        // whether we give this deduped bams or not depends on if rrbs or not
+    if ( ! params.rrbs ) {
+
+        // if not rrbs, deduplication happened, and we need to also give it the initial bams 
+        ch_for_bismark_summary = ch_bams_and_all_reports | join( ch_initial_bams )
+        GEN_BISMARK_SUMMARY( ch_for_bismark_summary | collect )
+
+    } else {
+        
+        // if rrbs, there was no deduplication, and the ch_bams_and_all_reports holds the only needed bams
+        GEN_BISMARK_SUMMARY( ch_bams_and_all_reports )
+        
+    }
+
+    // Alignment QC
+    ALIGNMENT_QC( ch_bams_to_extract_from )
+
+    // generate multiqc project report
+        // creating input channel holding all needed inputs for the project-level multiqc
+
+        // passing the projectDir variable as a channel to grab everything
+    full_project_dir_ch = Channel.fromPath( projectDir )
+
+        // adding additional needed channels
+    full_project_dir_ch | mix( ALIGN.out.reports |  map { it -> it[1] }, 
+                               EXTRACT_METHYLATION_CALLS.out.reports | map { it -> it[1] },
+                               ch_raw_mqc_inputs,
+                               ch_trimmed_mqc_inputs,
+                               ALIGNMENT_QC.out.qualimaps
+                             ) | 
+                          collect | set{ project_multiqc_in_ch }
+
+
+    PROJECT_MULTIQC( project_multiqc_in_ch )
+
+    // converting GTF to BED
+    GTF_TO_PRED( DOWNLOAD_GUNZIP_REFERENCES.out.gtf )
+    PRED_TO_BED( GTF_TO_PRED.out.pred )
+    
+    // making a mapping file of genes to transcripts (needed to link to functional annotations in primary output table)
+    MAKE_GENE_TRANSCRIPT_MAP( DOWNLOAD_GUNZIP_REFERENCES.out.gtf )
 
     // on to R next... need to look a lot at Jonathan's stuff
 

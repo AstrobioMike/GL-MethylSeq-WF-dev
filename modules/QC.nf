@@ -73,7 +73,7 @@ process TRIMGALORE {
             if [ ${params.single_end} == 'true' ]; then
 
                 # trimming
-                trim_galore --cores 4 --gzip $reads
+                trim_galore --cores 4 --gzip $reads -q 35
 
                 # renaming to our convention
                 mv ${meta.id}*_trimmed.fq.gz ${meta.id}_trimmed.fastq.gz
@@ -102,14 +102,14 @@ process ALIGNMENT_QC {
 
     tag "On: $meta.id"
 
-    publishDir params.bismark_alignments_dir
+    publishDir params.bismark_alignments_dir, mode: 'link'
 
     input:
         tuple val(meta), path(bam_file)
 
     output:
         tuple val(meta), path("${ meta.id }*.sorted.bam"), emit: bams
-        path("${ meta.id }*_qualimap")
+        path("${ meta.id }*_qualimap"), emit: qualimaps
 
 
     script:

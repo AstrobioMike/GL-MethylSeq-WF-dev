@@ -57,16 +57,16 @@ process ALIGN {
 
 process DEDUPLICATE {
 
-    tag "On: $name"
+    tag "On: $meta.id"
 
-    publishDir params.bismark_alignments_dir, mode: 'link', pattern: "${ name }_trimmed_bismark_*.bam"
+    publishDir params.bismark_alignments_dir, mode: 'link', pattern: "${ meta.id }_trimmed_bismark_*.bam"
 
     input:
-        tuple val(name), path(bam_file)
+        tuple val(meta), path(bam_file)
 
     output:
-        tuple val(name), path("${ name }_trimmed_bismark_*.bam"), emit: bams
-        tuple val(name), path("${ name }*_report.txt"), emit: reports
+        tuple val(meta), path("${ meta.id }_trimmed_bismark_*.bam"), emit: bams
+        tuple val(meta), path("${ meta.id }*_report.txt"), emit: reports
 
     script:
 
@@ -79,20 +79,20 @@ process DEDUPLICATE {
 
 process EXTRACT_METHYLATION_CALLS {
 
-    tag "On: $name"
+    tag "On: $meta.id"
 
     publishDir params.bismark_methylation_calls_dir, mode: 'link', pattern: "*.gz"
     publishDir params.bismark_methylation_calls_dir, mode: 'link', pattern: "*M-bias.txt"
 
     input:
-        tuple val(name), path(bam_file)
+        tuple val(meta), path(bam_file)
 
     output:
-        tuple val(name), path("${ name }*.cov.gz"), emit: covs
-        tuple val(name), path("${ name }*.bedGraph.gz"), emit: beds
-        tuple val(name), path("*${ name }*.txt.gz"), emit: contexts
-        tuple val(name), path("${ name }*.M-bias.txt"), emit: biases
-        tuple val(name), path("${ name }*_report.txt"), emit: reports
+        tuple val(meta), path("${ meta.id }*.cov.gz"), emit: covs
+        tuple val(meta), path("${ meta.id }*.bedGraph.gz"), emit: beds
+        tuple val(meta), path("*${ meta.id }*.txt.gz"), emit: contexts
+        tuple val(meta), path("${ meta.id }*.M-bias.txt"), emit: biases
+        tuple val(meta), path("${ meta.id }*_report.txt"), emit: reports
 
     script:
 
@@ -107,13 +107,13 @@ process EXTRACT_METHYLATION_CALLS {
 
 process GEN_BISMARK_SAMPLE_REPORT {
 
-    tag "On: $name"
+    tag "On: $meta"
 
     input:
-        tuple val(name), path(alignment_report), path(meth_calls_report), path(m_bias_report), file(dedupe_report)
+        tuple val(meta), path(alignment_report), path(meth_calls_report), path(m_bias_report), file(dedupe_report)
 
     output:
-        tuple val(name), path("${ name }*_report.html"), emit: reports
+        tuple val(meta), path("${ meta.id }*_report.html"), emit: reports
 
     script:
 
@@ -128,13 +128,10 @@ process GEN_BISMARK_SAMPLE_REPORT {
 
 process GEN_BISMARK_SUMMARY {
 
-    debug true
-
     publishDir params.bismark_summary_dir, mode: 'link', pattern: "bismark_summary_report.*"
 
     input:
         file(all_bams_and_reports)
-        file(initial_bams)
 
     output:
         tuple path("bismark_summary_report.html"), path("bismark_summary_report.txt"), emit: reports
