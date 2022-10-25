@@ -60,6 +60,32 @@ if ( ! params.gldsAccession ) {
 
 }
 
+/* **** making sure if non_directional is set, so is rrbs **** */
+// with TRIMGALORE, non_directional can only be specified if it's rrbs
+// https://github.com/FelixKrueger/TrimGalore/blob/e4fb81ff4adf052cd22e859f0f36aaee7ce63489/trim_galore#L2637
+// https://github.com/FelixKrueger/TrimGalore/blob/master/Docs/Trim_Galore_User_Guide.md#non-directional-mode
+// see last 2 slides here: https://github.com/FelixKrueger/TrimGalore/blob/master/Docs/RRBS_Guide.pdf
+// so, making sure that is the case here (might have to adjust if we auto-set the non_directional flag)
+if ( params.non_directional == true ) {
+
+    if params.rrbs != true {
+
+        println "\n    ${RED}As per TrimGalore, the non_directional parameter can only be set to 'true' if the rrbs parameter is also set to 'true'.${NC}"
+        println "\n    See:"
+        println "        - https://github.com/FelixKrueger/TrimGalore/blob/e4fb81ff4adf052cd22e859f0f36aaee7ce63489/trim_galore#L2637"
+        println "        - https://github.com/FelixKrueger/TrimGalore/blob/master/Docs/Trim_Galore_User_Guide.md#non-directional-mode"
+        println "        - and last few slides here: https://github.com/FelixKrueger/TrimGalore/blob/master/Docs/RRBS_Guide.pdf"
+
+        println "\n    Exiting for now.\n"
+
+        exit 1
+
+    }
+}
+
+
+
+
 /* **** checking specified target_organism is available **** */
 // if ( params.target_organism !in params.accepted_target_orgs ) {
 
