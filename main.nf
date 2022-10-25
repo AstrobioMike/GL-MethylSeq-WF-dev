@@ -8,6 +8,14 @@ Largely modified from the nf-core/methylseq workflow: https://github.com/nf-core
 // Declare syntax version
 nextflow.enable.dsl=2
 
+// making sure specific expected nextflow version is being used
+if( ! nextflow.version.matches( workflow.manifest.nextflowVersion ) ) {
+    println "\n    ${RED}This workflow requires Nextflow version $workflow.manifest.nextflowVersion, but version $nextflow.version is currently active.${NC}"
+    println "\n    ${YELLOW}You can set the proper version for this terminal session by running: `export NXF_VER=$workflow.manifest.nextflowVersion`${NC}"
+    println "\n    Exiting for now.\n"
+    exit 1
+}
+
 
 ////////////////////////////////////////////////////
 /* --               PRINT HELP                 -- */
