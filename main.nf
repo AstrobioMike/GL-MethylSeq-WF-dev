@@ -12,7 +12,7 @@ nextflow.enable.dsl=2
 if( ! nextflow.version.matches( workflow.manifest.nextflowVersion ) ) {
     println "\n    ${RED}This workflow requires Nextflow version $workflow.manifest.nextflowVersion, but version $nextflow.version is currently active.${NC}"
     println "\n    ${YELLOW}You can set the proper version for this terminal session by running: `export NXF_VER=$workflow.manifest.nextflowVersion`${NC}"
-    println "\n    Exiting for now.\n"
+    println "\n  Exiting for now.\n"
     exit 1
 }
 
@@ -52,7 +52,7 @@ if ( ! params.gldsAccession ) {
         println "\n    ${RED}A specific GLDS number (e.g., `--gldsAccession GLDS-397`) or a user-created"
         println "    run sheet (e.g., `--runsheet my-runsheet.csv`) needs to be provided.${NC}"
 
-        println "\n    Exiting for now.\n"
+        println "\n  Exiting for now.\n"
 
         exit 1
 
@@ -68,15 +68,15 @@ if ( ! params.gldsAccession ) {
 // so, making sure that is the case here (might have to adjust if we auto-set the non_directional flag)
 if ( params.non_directional == true ) {
 
-    if params.rrbs != true {
+    if ( params.rrbs != true ) {
 
         println "\n    ${RED}As per TrimGalore, the non_directional parameter can only be set to 'true' if the rrbs parameter is also set to 'true'.${NC}"
-        println "\n    See:"
+        println "\n    ${YELLOW}See:"
         println "        - https://github.com/FelixKrueger/TrimGalore/blob/e4fb81ff4adf052cd22e859f0f36aaee7ce63489/trim_galore#L2637"
         println "        - https://github.com/FelixKrueger/TrimGalore/blob/master/Docs/Trim_Galore_User_Guide.md#non-directional-mode"
-        println "        - and last few slides here: https://github.com/FelixKrueger/TrimGalore/blob/master/Docs/RRBS_Guide.pdf"
+        println "        - and last few slides here: https://github.com/FelixKrueger/TrimGalore/blob/master/Docs/RRBS_Guide.pdf${NC}"
 
-        println "\n    Exiting for now.\n"
+        println "\n  Exiting for now.\n"
 
         exit 1
 
@@ -97,7 +97,7 @@ if ( params.non_directional == true ) {
 
 //     }
 
-//     println "\n    Exiting for now.\n"
+//     println "\n  Exiting for now.\n"
 
 //     exit 1
 
@@ -107,7 +107,7 @@ if ( params.non_directional == true ) {
 if ( params.lib_type !in params.accepted_lib_types ) {
 
     println "\n    ${RED}No suitable 'lib_type' was set in nextflow.config file.${NC}"
-    println "\n    Exiting for now.\n"
+    println "\n  Exiting for now.\n"
 
     exit 1
 
@@ -117,7 +117,7 @@ if ( params.lib_type !in params.accepted_lib_types ) {
 // if ( ! file( params.input_reads_dir ).exists() ) {
 
 //     println "\n    ${RED}The specified '${params.input_reads_dir}' directory set in nextflow.config can't be found.${NC}"
-//     println "\n    Exiting for now.\n"
+//     println "\n  Exiting for now.\n"
 
 //     exit 1
 
@@ -136,7 +136,7 @@ if ( params.lib_type !in params.accepted_lib_types ) {
 // if ( input_file_list.size() == 0 ) {
 
 //     println "\n    ${RED}No gzipped fastq files were found in the specified ${params.input_reads_dir} directory set in nextflow.config.${NC}"
-//     println "    Exiting for now.\n"
+//     println "  Exiting for now.\n"
 
 //     exit 1
 
@@ -152,7 +152,7 @@ if ( params.lib_type !in params.accepted_lib_types ) {
 //         if ( ! input_file.toString().endsWith("_raw.fq.gz") ) {
 
 //             println "\n    ${RED}Currently the input read files need to have a suffix like '_raw.fastq.gz' or '_raw.fq.gz'.${NC}"
-//             println "    Exiting for now.\n"
+//             println "  Exiting for now.\n"
 
 //             exit 1
 
@@ -225,7 +225,7 @@ workflow {
     } else {
 
         println "\n    ${RED}We're not ready to take a user-provided run sheet yet :(${NC}"
-        println "\n    Exiting for now.\n"
+        println "\n  Exiting for now.\n"
 
         exit 1
 
