@@ -52,31 +52,52 @@ process DOWNLOAD_GUNZIP_REFERENCES {
         path("*.gtf"), emit: gtf
 
     script:
+       
         // subsetting if specified
         if ( params.genomeSubsample ) {
 
-            """
-            curl -LO ${fasta_url}
-            curl -LO ${gtf_url}
+            // doing a smaller ref genome fasta download if specific link provided
+            if ( params.genomeSubsample_download_link ) {
 
-            gunzip -f *.gz
+                """
+                curl -LO ${ params.genomeSubsample_download_link }
+                curl -LO ${gtf_url}
 
-            # getting original file output names
-            out_fasta=\$(ls *.fa)
-            out_gtf=\$(ls *.gtf)
+                gunzip -f *.gz
 
-            # subsampling each
-            samtools faidx \${out_fasta} ${ params.genomeSubsample } -o tmp.fa && mv tmp.fa \${out_fasta}
+                # getting original file output gtf name
+                out_gtf=\$(ls *.gtf)
 
-            grep '^#!' \${out_gtf} > tmp.gtf
-            grep '^${ params.genomeSubsample }\t' \${out_gtf} >> tmp.gtf
-            mv tmp.gtf \${out_gtf}
+                grep '^#!' \${out_gtf} > tmp.gtf
+                grep '^${ params.genomeSubsample }\t' \${out_gtf} >> tmp.gtf
+                mv tmp.gtf \${out_gtf}
+                """
 
-            # removing index
-            rm *.fai
-            """
+            } else { 
+                
+                // this is the case if no specific subset fasta download link was provided, getting full one and subsetting
+                """
+                curl -LO ${fasta_url}
+                curl -LO ${gtf_url}
 
-            
+                gunzip -f *.gz
+
+                # getting original file output names
+                out_fasta=\$(ls *.fa)
+                out_gtf=\$(ls *.gtf)
+
+                # subsampling each
+                samtools faidx \${out_fasta} ${ params.genomeSubsample } -o tmp.fa && mv tmp.fa \${out_fasta}
+
+                grep '^#!' \${out_gtf} > tmp.gtf
+                grep '^${ params.genomeSubsample }\t' \${out_gtf} >> tmp.gtf
+                mv tmp.gtf \${out_gtf}
+
+                # removing index
+                rm *.fai
+                """
+
+            }
 
         } else {
 
