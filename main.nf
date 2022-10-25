@@ -12,6 +12,7 @@ nextflow.enable.dsl=2
 if( ! nextflow.version.matches( workflow.manifest.nextflowVersion ) ) {
     println "\n    ${RED}This workflow requires Nextflow version $workflow.manifest.nextflowVersion, but version $nextflow.version is currently active.${NC}"
     println "\n    ${YELLOW}You can set the proper version for this terminal session by running: `export NXF_VER=$workflow.manifest.nextflowVersion`${NC}"
+
     println "\n  Exiting for now.\n"
     exit 1
 }
@@ -53,7 +54,6 @@ if ( ! params.gldsAccession ) {
         println "    run sheet (e.g., `--runsheet my-runsheet.csv`) needs to be provided.${NC}"
 
         println "\n  Exiting for now.\n"
-
         exit 1
 
     }
@@ -77,7 +77,6 @@ if ( params.non_directional == true ) {
         println "        - and last few slides here: https://github.com/FelixKrueger/TrimGalore/blob/master/Docs/RRBS_Guide.pdf${NC}"
 
         println "\n  Exiting for now.\n"
-
         exit 1
 
     }
@@ -107,8 +106,8 @@ if ( params.non_directional == true ) {
 if ( params.lib_type !in params.accepted_lib_types ) {
 
     println "\n    ${RED}No suitable 'lib_type' was set in nextflow.config file.${NC}"
-    println "\n  Exiting for now.\n"
 
+    println "\n  Exiting for now.\n"
     exit 1
 
 }
@@ -359,21 +358,18 @@ workflow {
 
     // making overall bismark summary 
         // problem with this for now, see issue i posted here: https://github.com/FelixKrueger/Bismark/issues/520
-            // ahh, bismark2summary needs the original bams to start with, passing them too now
-    
-        // whether we give this deduped bams or not depends on if rrbs or not
+            // ahh, bismark2summary needs the original bams to start with even when deduplicated (makes sense), passing them too now
+    // so if rrbs, then adding initial bams to ch_bams_and_all_reports
     if ( ! params.rrbs ) {
 
-        // if not rrbs, deduplication happened, and we need to also give it the initial bams 
-        ch_for_bismark_summary = ch_bams_and_all_reports | join( ch_initial_bams )
-        GEN_BISMARK_SUMMARY( ch_for_bismark_summary | collect )
+        // in here, the map{} is to drop the meta tags so that the mix works properly (i think needed?)
+        ch_initial_bams = ch_initial_bams | map { it -> it[1] } | collect
 
-    } else {
-        
-        // if rrbs, there was no deduplication, and the ch_bams_and_all_reports holds the only needed bams
-        GEN_BISMARK_SUMMARY( ch_bams_and_all_reports )
-        
-    }
+        ch_bams_and_all_reports = ch_bams_and_all_reports | mix ( ch_initial_bams ) | collect
+
+    } 
+    
+    GEN_BISMARK_SUMMARY( ch_bams_and_all_reports )
 
     // Alignment QC
     ALIGNMENT_QC( ch_bams_to_extract_from )
