@@ -65,7 +65,9 @@ process TRIMGALORE {
         tuple val(meta), path("${ meta.id }*trimming_report.txt"), emit: reports
 
     script:
-    
+
+        non_directional = params.non_directional ? '--non_directional' : ''
+
         """
         # this depends on the lib_type and then if paired-end or not
         if [ ${params.lib_type} == 1 ]; then
@@ -73,7 +75,7 @@ process TRIMGALORE {
             if [ ${params.single_end} == 'true' ]; then
 
                 # trimming
-                trim_galore --cores 4 --gzip $reads -q 35
+                trim_galore --cores 4 --gzip $reads ${non_directional}
 
                 # renaming to our convention
                 mv ${meta.id}*_trimmed.fq.gz ${meta.id}_trimmed.fastq.gz
