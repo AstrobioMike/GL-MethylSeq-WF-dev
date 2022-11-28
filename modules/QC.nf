@@ -67,6 +67,7 @@ process TRIMGALORE {
     script:
 
         non_directional = params.non_directional ? '--non_directional' : ''
+        
 
         """
         # this depends on the lib_type and then if paired-end or not
@@ -89,7 +90,22 @@ process TRIMGALORE {
         
         elif [ ${params.lib_type} == 2 ]; then
 
-            printf "    second lib type\n"
+            if [ ${params.single_end} == 'true' ]; then
+
+                # trimming
+                trim_galore --cores 4 --gzip $reads ${non_directional} --rrbs
+
+                # renaming to our convention
+                mv ${meta.id}*_trimmed.fq.gz ${meta.id}_trimmed.fastq.gz
+
+            else
+
+                printf "    second lib type, paired-end not yet setup!\n"
+                exit 1
+
+            fi
+
+
 
         elif [ ${params.lib_type} == 3 ]; then
 
