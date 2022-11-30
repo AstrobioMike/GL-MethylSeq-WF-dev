@@ -1,2 +1,7 @@
 local run: nextflow run main.nf -resume -profile conda,local
 gitpod run: nextflow run main.nf -resume -profile docker
+
+
+# example running methylkit script manually for now
+conda activate methylkit
+Rscript --vanilla bin/differential-methylation.R --limit_samples_to 3 --ref_genome_string Mmus_GRCm39 --ref_annotations_tab_link https://figshare.com/ndownloader/files/36597114 --primary_keytype ENSEMBL
