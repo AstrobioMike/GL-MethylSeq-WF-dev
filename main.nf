@@ -399,6 +399,12 @@ workflow {
     // making a mapping file of genes to transcripts (needed to link to functional annotations in primary output table)
     MAKE_GENE_TRANSCRIPT_MAP( DOWNLOAD_GUNZIP_REFERENCES.out.gtf )
 
-    // on to R next... need to look a lot at Jonathan's stuff
+    // on to R next... 
+    // here is how to pass the link to R script: 
+        // PARSE_ANNOTATIONS_TABLE.out.annotations_db_url
+    // look at ch_meta for primary_keytype to try to find keytype to pass here
+    // figure out what we want to pass for the "assembly" slot in methylkit object,
+        // maybe something from ensemblVersion/Source in PARSE_ANNOTATIONS_TABLE.out also
+
 
 }

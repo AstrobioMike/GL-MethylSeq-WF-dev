@@ -2,38 +2,6 @@
  * Processes for general utilities.
  */
 
-// process DOWNLOAD_REFERENCES {
- 
-//     publishDir params.ref_genome_dir, mode: 'link'
-
-//     // gets information from the table linked in nextflow.config under reference_table_url
-//     input:
-//         val(target_organism)
-//         val(target_url)
-
-//     output:
-//         path("*.fa"), emit: fasta
-//         path("*.gtf"), emit: gtf
-
-//     script:
-
-//         // reading reference table into memory
-//         def ref_tab = [:]
-
-//         target_url.toURL().splitEachLine(",") { fields -> ref_tab[fields[0]] = fields }
-
-//         fasta_url = ref_tab[target_organism][5]
-//         gtf_url = ref_tab[target_organism][6]
-
-//         """
-//         curl -LO ${fasta_url}
-//         curl -LO ${gtf_url}
-
-//         gunzip *.gz
-//         """
-
-// }
-
 
 process DOWNLOAD_GUNZIP_REFERENCES {
 
@@ -61,24 +29,31 @@ process DOWNLOAD_GUNZIP_REFERENCES {
 
                 """
                 curl -LO ${ params.genomeSubsample_download_link }
-                curl -LO ${gtf_url}
+                curl -LO ${ gtf_url }
 
                 gunzip -f *.gz
 
-                # getting original file output gtf name
+                # getting original file output names
+                out_fasta=\$(ls *.fa)
                 out_gtf=\$(ls *.gtf)
+
+                # subsampling each
+                samtools faidx \${out_fasta} ${ params.genomeSubsample } -o tmp.fa && mv tmp.fa \${out_fasta}
 
                 grep '^#!' \${out_gtf} > tmp.gtf
                 grep '^${ params.genomeSubsample }\t' \${out_gtf} >> tmp.gtf
                 mv tmp.gtf \${out_gtf}
+
+                # removing index
+                rm *.fai
                 """
 
             } else { 
                 
                 // this is the case if no specific subset fasta download link was provided, getting full one and subsetting
                 """
-                curl -LO ${fasta_url}
-                curl -LO ${gtf_url}
+                curl -LO ${ fasta_url }
+                curl -LO ${ gtf_url }
 
                 gunzip -f *.gz
 

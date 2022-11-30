@@ -1,86 +1,180 @@
 library(optparse)
-library(tidyverse)
-library(methylKit)
-library(genomation)
+## other packages loaded below after help menu might be called
 
-parser <- OptionParser()
+############################################
+############ handling arguments ############
+############################################
+
+parser <- OptionParser(description = "\n  This is really only intented to be called from within the GeneLab MethylSeq workflow.")
 
 parser <- add_option(parser, c("-v", "--verbose"),
                      action = "store_true",
                      default = FALSE, help = "Print extra output")
 
-
-# directory of Bismark_Methylation_Calls
 parser <- add_option(parser, c("--bismark_methylation_calls_dir"),
                      default = "Bismark_Methylation_calls",
                      help = "Directory holding *bismark.cov.gz files")
 
-# directory of metadata
 parser <- add_option(parser, c("--metadata_dir"),
                      default = "Metadata",
                      help = "Directory holding metadata files")
 
-
-# directory of reference genome files
 parser <- add_option(parser, c("--ref_dir"),
                      default = "Reference_Genome_Files",
                      help = "Directory holding reference genome files (e.g. *.bed and *.gtf files)")
 
-
-# methylkit output directory
 parser <- add_option(parser, c("--methylkit_output_dir"),
                      default = "MethylKit_Outputs",
-                     help = "Directory holding metadata files")
+                     help = "Directory for methylkit output files")
 
-
-# directory of metadata
 parser <- add_option(parser, c("--limit_samples_to"),
                      default = "all",
                      help = "Limits the number of samples being processed (won't do real factor comparisons if set)")
 
-
-# reference genome used (just for recording in methylkit)
 parser <- add_option(parser, c("--ref_genome_string"),
                      help = "Reference genome used (just for recording, not used here)")
 
+parser <- add_option(parser, c("--ref_annotations_tab_link"),
+                     help = "Link to reference-genome annotations table")
 
-# number of threads to run in parallel for methylkit calls
 parser <- add_option(parser, c("--mc_cores"), default = 4, type = "integer",
                      help = "Passed to mc.cores argument of calculateDiffMeth() call")
 
+parser <- add_option(parser, c("--primary_keytype"),
+                     help = "The keytype to use for mapping annotations (usually 'ENSEMBL' for most things; 'TAIR' for plants)")
 
 args <- parse_args(parser)
 
+############################################
+########### for testing purposes ###########
+############################################
+
+# args$v <- TRUE
+# args$bismark_methylation_calls_dir <- "Bismark_Methylation_Calls"
+# args$metadata_dir <- "Metadata"
+# args$ref_dir <- "Reference_Genome_Files"
+# args$methylkit_output_dir <- "MethylKit_Outputs"
+# args$limit_samples_to <- 3
+# args$ref_genome_string <- "Mmus_GRCm39"
+# args$ref_annotations_tab_link <- "https://figshare.com/ndownloader/files/36597114"
+# args$mc_cores <- 4
+# args$primary_keytype <- "ENSEMBL"
+
+############################################
+
+
+############################################
+########### checking on arguments ##########
+############################################
+
 # checking required arguments were set
-if ( is.na(args$ref_genome_string )) {
-    stop("\nThe --ref_genome_string argument must be provided. Cannot proceed.\n")
+required_args <- c("ref_genome_string" = "--ref_genome_string",
+                   "ref_annotations_tab_link" = "--ref_annotations_tab_link",
+                   "primary_keytype" = "--primary_keytype")
+
+
+for ( arg in names(required_args) ) {
+
+    tryCatch( { get(arg, args) }, error = function(e) { 
+              
+                      stop(cat("\nThe '", as.character(required_args[arg]),
+                               "' argument must be provided. Cannot proceed.\n", sep = ""), call. = FALSE)
+
+    })
+    
 }
+
+# checking primary keytype is what's expected
+currently_accepted_keytypes <- c("ENSEMBL", "TAIR")
+if ( ! args$primary_keytype %in% currently_accepted_keytypes ) {
+    
+    stop(cat("\nThe current potential --primary_keytypes are:", currently_accepted_keytypes,
+             "\nCannot proceed with:", args$primary_keytype, "\n"), call. = FALSE)
+}
+
+############################################
+############# loading packages #############
+############################################
+
+suppressWarnings(suppressMessages(library(tidyverse)))
+suppressWarnings(suppressMessages(library(methylKit)))
+suppressWarnings(suppressMessages(library(genomation)))
+
+############################################
+
+
+############################################
+############# helper functions #############
+############################################
+get_single_file_path <- function(target_dir, search_pattern) {
+    
+    hits <- list.files(target_dir, pattern = search_pattern, full.names = TRUE)
+    
+    # checking only one was found matching pattern search
+    if ( length(hits) != 1 ) { 
+        
+        error_message <- cat("\nA single file was not found in the ", target_dir,
+                             " directory based on the search pattern '",
+                             search_pattern, "'. Cannot proceed.\n", sep = "")
+        
+        stop(error_message, call. = FALSE)
+    }
+    
+    return(hits)
+    
+}
+
+order_input_files <- function(sample_names, paths) {
+    
+    # this function takes in a vector of sample_names and
+    # a vector of paths to coverage files, and returns a vector
+    # of coverage files in the same order as the sample names
+    
+    ordered_paths <- c()
+    
+    for ( sample in sample_names ) {
+        
+        search_pattern <- paste0(sample, "_trimmed")
+        hits <- paths[grep(search_pattern, paths)]
+        
+        # making sure there is exactly one match
+        if ( length(hits) != 1 ) {
+            
+            stop("\nThere was a problem matching up sample names with their coverage files. Cannot proceed.\n", call. = FALSE)
+            
+        }
+        
+        ordered_paths <- c(ordered_paths, hits)
+        
+    }
+    
+    return(ordered_paths)
+    
+}
+
+############################################
+
+
+############################################
+############# setting things up ############
+############################################
 
 ### finding reference bed file
-ref_bed_path <- list.files(args$ref_dir, pattern = ".*.bed", full.names = TRUE)
-
-# checking only one was found matching pattern search
-if ( length(ref_bed_path) != 1 ) { 
-    error_message = cat("\nA single reference bed file was not found in the", args$ref_dir, "directory ending in '*bed'. Cannot proceed.\n")
-    stop(error_message, call. = FALSE)
-}
+ref_bed_path <- get_single_file_path(args$ref_dir, ".*.bed")
 
 
-# getting path to runsheet
-runsheet_path <- list.files(args$metadata_dir, pattern = ".*_runsheet.csv", full.names = TRUE)
+### finding reference gene-to-transcript mapping file
+ref_gene_transcript_map_path <- get_single_file_path(args$ref_dir, ".*-gene-to-transcript-map.tsv")
 
-# checking only one was found matching pattern search
-if ( length(runsheet_path) != 1 ) { 
-    error_message = cat("\nA single runsheet file was not found in the", args$metadata_dir, "directory ending in '*_runsheet.csv'. Cannot proceed.\n")
-    stop(error_message, call. = FALSE)
-}
 
+### getting path to runsheet
+runsheet_path <- get_single_file_path(args$metadata_dir, ".*_runsheet.csv")
 
 # reading runsheet
 runsheet <- read.csv(runsheet_path)
 
-# getting all factors
-# adding mock factors so we have more
+### getting all factors
+# mock factors if wanted for testing
 # runsheet$Factor.Value.Other <- c(rep("Mad", 10), rep("Dog", 6))
 # runsheet$Factor.Value.Other2 <- c(rep("LilMac", 6), rep("Fighter", 10))
 # runsheet$Factor.Value.Other2 <- c(rep("A", 6), rep("B", 8), rep("C", 2))
@@ -88,6 +182,7 @@ factors <- runsheet %>% dplyr::select(starts_with("Factor.Value"))
 colnames(factors) = paste("factor", 1:dim(factors)[2], sep = "_")
 
 # checking if there is more than two unique values in a given factor, as methylkit isn't built for that
+    # might not need this after doing combined only way as RNAseq does, need to check later
 for ( factor in colnames(factors)) {
 
     curr_unique_entries <- factors[factor] %>% unique() %>% pull()
@@ -182,8 +277,24 @@ dir.create(args$methylkit_output_dir, showWarnings = FALSE)
 
 # reading in transcript features
 gene.obj <- readTranscriptFeatures(ref_bed_path, up.flank = 1000, 
-                                   down.flank = 1000, remove.unusual = TRUE, 
-                                   unique.prom = TRUE)
+                                   down.flank = 1000, remove.unusual = TRUE, unique.prom = TRUE)
+
+# reading in gene to transcript mapping file
+gene_transcript_map <- 
+    read.table(ref_gene_transcript_map_path, sep = "\t", col.names = c("gene_ID", "feature.name"))
+
+# reading in functional annotation table
+options(timeout = 600)
+
+functional_annots_tab <- 
+    read.table(args$ref_annotations_tab_link, sep = "\t", quote = "", header = TRUE)
+
+############################################
+
+
+############################################
+########## getting into methylkit ##########
+############################################
 
 
 ####### NOTE TO MIKE DURING DEV #######
@@ -253,7 +364,7 @@ for ( i in 1:dim(contrasts)[2]) {
     # curr_myDiff25p.hyper <- getMethylDiff(curr_myDiff, difference = 25, qvalue = 0.01, type = "hyper")
     
     ##### TEST VALUES ONLY - REPLACE WITH ABOVE WHEN DONE #####
-    curr_myDiff25p.hyper <- getMethylDiff(curr_myDiff, difference = 1, qvalue = 0.9, type = "hyper")
+    curr_myDiff25p.hyper <- getMethylDiff(curr_myDiff, difference = 5, qvalue = 0.9, type = "hyper")
     ###########################################################
     
     # making table for writing out
@@ -263,7 +374,7 @@ for ( i in 1:dim(contrasts)[2]) {
     # curr_myDiff25p.hypo <- getMethylDiff(curr_myDiff, difference = 25, qvalue = 0.01, type = "hypo")
     
     ##### TEST VALUES ONLY - REPLACE WITH ABOVE WHEN DONE #####
-    curr_myDiff25p.hypo <- getMethylDiff(curr_myDiff, difference = 1, qvalue = 0.9, type = "hypo")
+    curr_myDiff25p.hypo <- getMethylDiff(curr_myDiff, difference = 5, qvalue = 0.9, type = "hypo")
     ###########################################################
     
     # making table for writing out
@@ -273,7 +384,7 @@ for ( i in 1:dim(contrasts)[2]) {
     # curr_myDiff25p <- getMethylDiff(curr_myDiff, difference = 25, qvalue = 0.01)
     
     ##### TEST VALUES ONLY - REPLACE WITH ABOVE WHEN DONE #####
-    curr_myDiff25p <- getMethylDiff(curr_myDiff, difference = 1, qvalue = 0.9)
+    curr_myDiff25p <- getMethylDiff(curr_myDiff, difference = 5, qvalue = 0.9)
     ###########################################################
     
     # making table for writing out
@@ -348,19 +459,9 @@ for ( i in 1:dim(contrasts)[2]) {
                 sep = "\t", quote = FALSE, row.names = FALSE)
     
     
-    
-    
-    
-    
-    
-    
-    
-    
     ### Adding feature information ###
     
     ## adding features to individual-base object
-    
-    ######## PROBLEM NEXT FEW LINES HERE, MIGHT HAVE TO DO WITH BED FILE NOT BEING SUBSET PROPERLY OR SOMETHING
     curr_diffAnn <- annotateWithGeneParts(as(curr_myDiff25p, "GRanges"), gene.obj)
     
     # making base-level sig table with features 
@@ -368,149 +469,97 @@ for ( i in 1:dim(contrasts)[2]) {
                                                   getAssociationWithTSS(curr_diffAnn), 
                                                   as.data.frame(getMembers(curr_diffAnn))) %>% .[,-c(8)]
     
-    write.table(sig_all_bases_tab_with_features, "sig-diff-methylated-bases-with-features.tsv", 
+
+    # writing out
+    curr_sig_all_bases_tab_with_features_path <- file.path(curr_output_dir, paste0(curr_output_prefix, "-sig-diff-methylated-bases-with-features.tsv"))
+    write.table(curr_sig_all_bases_tab_with_features, curr_sig_all_bases_tab_with_features_path, 
                 sep = "\t", quote = FALSE, row.names = FALSE)
     
     
     ## adding features to tiles object
-    tiles_diffAnn <- annotateWithGeneParts(as(tiles_myDiff25p, "GRanges"), gene.obj)
+    curr_tiles_diffAnn <- annotateWithGeneParts(as(curr_tiles_myDiff25p, "GRanges"), gene.obj)
     
     # making tiles sig table with features 
-    tiles_sig_all_out_tab_with_features <- cbind(data.frame(myDiff25p), 
-                                                 getAssociationWithTSS(diffAnn), 
-                                                 as.data.frame(getMembers(diffAnn))) %>% .[,-c(8)]
+    curr_tiles_sig_all_out_tab_with_features <- cbind(data.frame(curr_tiles_myDiff25p), 
+                                                      getAssociationWithTSS(curr_tiles_diffAnn), 
+                                                      as.data.frame(getMembers(curr_tiles_diffAnn))) %>% .[,-c(8)]
     
-    write.table(tiles_sig_all_out_tab_with_features, "sig-diff-methylated-tiles-with-features.tsv", 
+    # writing out
+    curr_sig_tiles_tab_with_features_path <- file.path(curr_output_dir, paste0(curr_output_prefix, "-sig-diff-methylated-tiles-with-features.tsv"))
+    write.table(curr_tiles_sig_all_out_tab_with_features, curr_sig_tiles_tab_with_features_path, 
                 sep = "\t", quote = FALSE, row.names = FALSE)
     
     
     ### Adding functional annotations ###
-    # reading in annotation table appropriate for current organism
-    # when we have the final location for this information, this will
-    # need to be updated to pull a table with the links, rather than
-    # the link being hard-coded here in this example
-    functional_annots_tab <- 
-        read.table("https://figshare.com/ndownloader/files/35939642", sep = "\t", 
-                   quote = "", header = TRUE)
-    
-    # reading in gene to transcript mapping file
-    gene_transcript_map <- 
-        read.table("subset-test-results/Mus_musculus.GRCm39.107-gene-to-transcript-map.tsv", sep = "\t", 
-                   col.names = c("gene_ID", "feature.name"))
-    
     
     ## for individual-base output
     # for each transcript ID in the sig_all_bases_tab_with_features table, getting 
     # its corresponding gene ID and adding that to the table
-    sig_all_bases_tab_with_features_and_gene_IDs <- 
-        left_join(sig_all_bases_tab_with_features, gene_transcript_map)
+    curr_sig_all_bases_tab_with_features_and_gene_IDs <- 
+        left_join(curr_sig_all_bases_tab_with_features, gene_transcript_map)
     
     # now adding full annotations
-    sig_all_bases_tab_with_features_and_annots <- 
-        left_join(sig_all_bases_tab_with_features_and_gene_IDs, 
-                  functional_annots_tab, by = c("gene_ID" = "ENSEMBL"))
+    curr_sig_all_bases_tab_with_features_and_annots <- 
+        left_join(curr_sig_all_bases_tab_with_features_and_gene_IDs, 
+                  functional_annots_tab, by = c("gene_ID" = args$primary_keytype))
     
     # and writing out
-    write.table(sig_all_bases_tab_with_features_and_annots, 
-                "sig-diff-methylated-bases-with-features-and-annots.tsv", 
+    curr_sig_all_bases_tab_with_features_and_annots_path <- 
+        file.path(curr_output_dir, paste0(curr_output_prefix, "-sig-diff-methylated-bases-with-features-and-annots.tsv"))
+    
+    write.table(curr_sig_all_bases_tab_with_features_and_annots, curr_sig_all_bases_tab_with_features_and_annots_path, 
                 sep = "\t", quote = FALSE, row.names = FALSE)
-    
-    
-    # making and writing out a table of base-level percent methylated
-    perc.meth <- percMethylation(meth, rowids = TRUE)
-    write.table(perc.meth, "base-level-percent-methylated.tsv", sep = "\t", 
-                quote = FALSE, row.names = TRUE, col.names=NA)
-    
     
     ## for tiles output
     # for each transcript ID in the tiles_sig_all_out_tab_with_features table, getting 
     # its corresponding gene ID and adding that to the table
-    sig_all_tiles_tab_with_features_and_gene_IDs <- 
-        left_join(tiles_sig_all_out_tab_with_features, gene_transcript_map)
+    curr_sig_all_tiles_tab_with_features_and_gene_IDs <- 
+        left_join(curr_tiles_sig_all_out_tab_with_features, gene_transcript_map)
     
     # now adding full annotations
-    sig_all_tiles_tab_with_features_and_annots <- 
-        left_join(sig_all_tiles_tab_with_features_and_gene_IDs, 
+    curr_sig_all_tiles_tab_with_features_and_annots <- 
+        left_join(curr_sig_all_tiles_tab_with_features_and_gene_IDs, 
                   functional_annots_tab, by = c("gene_ID" = "ENSEMBL"))
     
     # and writing out
-    write.table(sig_all_tiles_tab_with_features_and_annots, 
-                "sig-diff-methylated-tiles-with-features-and-annots.tsv", 
+    curr_sig_all_tiles_tab_with_features_and_annots_path <- 
+        file.path(curr_output_dir, paste0(curr_output_prefix, "-sig-diff-methylated-tiles-with-features-and-annots.tsv"))
+    
+    write.table(curr_sig_all_tiles_tab_with_features_and_annots, curr_sig_all_tiles_tab_with_features_and_annots_path, 
                 sep = "\t", quote = FALSE, row.names = FALSE)
     
-    
-    # making and writing out a table of tile-level percent methylated
-    tiles_perc.meth <- percMethylation(tiles_meth, rowids = TRUE)
-    write.table(tiles_perc.meth, "tile-level-percent-methylated.tsv", sep = "\t", 
-                quote = FALSE, row.names = TRUE, col.names=NA)
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
 }
 
+### making and writing out a table of base-level percent methylated (treatment vector doesn't matter here, just making a mock one)
+len_1s <- ceiling(length(sample_names) / 2)
+len_0s <- length(sample_names) - len_1s
+mock_treatment_vec <- c(rep(1, len_1s), rep(0, len_0s))
 
-sample_names <- c("M21", "M22", "M23")
-bismark_cov_paths
+obj <- methRead(location = as.list(sample_meth_info_df %>% pull(coverage_file_path)),
+                sample.id = as.list(sample_meth_info_df %>% pull(sample_id)),
+                treatment = mock_treatment_vec,
+                pipeline = "bismarkCoverage",
+                assembly = args$ref_genome_string,
+                header = FALSE,
+                mincov = 10)
 
-mod_paths_order <- bismark_cov_paths[c(3,1,2)]
+meth <- unite(obj)
 
+perc.meth <- percMethylation(meth, rowids = TRUE)
+perc.meth <- perc.meth %>% data.frame() %>% rownames_to_column("location")
 
+# writing out
+perc.meth_path <- file.path(args$methylkit_output_dir, "base-level-percent-methylated.tsv")
 
-# # 
-# # ## beginning methylkit
-# # # reading into memory
-# # myobj <- methRead(location = file.list,
-# #                   sample.id = sample.list,
-# #                   assembly = "Mmus_GRCm39",
-# #                   pipeline = "bismarkCoverage",
-# #                   header = FALSE,
-# #                   treatment = c(1,1,1,0,0,0),
-# #                   mincov = 10)
-# 
-# 
+write.table(perc.meth, perc.meth_path, sep = "\t", quote = FALSE, row.names = FALSE)
 
+### making and writing out a table of tile-level percent methylated (contrasts don't matter here)
+tiles_obj <- tileMethylCounts(obj, win.size = 1000, step.size = 1000, cov.bases = 10)
+tiles_meth <- unite(tiles_obj)
 
-### helper functions ###
-order_input_files <- function(sample_names, paths) {
-    
-    # this function takes in a vector of sample_names and
-    # a vector of paths to coverage files, and returns a vector
-    # of coverage files in the same order as the sample names
-    
-    ordered_paths <- c()
-    
-    for ( sample in sample_names ) {
-        
-        search_pattern <- paste0(sample, "_trimmed")
-        hits <- paths[grep(search_pattern, paths)]
-        
-        # making sure there is exactly one match
-        if ( length(hits) != 1 ) {
-            
-            stop("\nThere was a problem matching up sample names with their coverage files. Cannot proceed.\n", call. = FALSE)
-        
-        }
-        
-        ordered_paths <- c(ordered_paths, hits)
-    
-    }
-    
-    return(ordered_paths)
-    
-}
+tiles_perc.meth <- percMethylation(tiles_meth, rowids = TRUE)
+tiles_perc.meth <- tiles_perc.meth %>% data.frame() %>% rownames_to_column("location")
 
+tiles_perc.meth_path <- file.path(args$methylkit_output_dir, "tile-level-percent-methylated.tsv")
+
+write.table(tiles_perc.meth, tiles_perc.meth_path, sep = "\t", quote = FALSE, row.names = FALSE)
