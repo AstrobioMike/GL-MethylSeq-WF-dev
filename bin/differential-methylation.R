@@ -40,6 +40,12 @@ parser <- add_option(parser, c("--ref_annotations_tab_link"),
 parser <- add_option(parser, c("--mc_cores"), default = 4, type = "integer",
                      help = "Passed to mc.cores argument of calculateDiffMeth() call")
 
+parser <- add_option(parser, c("--getMethylDiff_difference"), default = 25, type = "integer",
+                     help = "Passed to difference argument of getMethylDiff() call")
+
+parser <- add_option(parser, c("--getMethylDiff_qvalue"), default = 0.01, type = "double",
+                     help = "Passed to qvalue argument of getMethylDiff() call")
+
 parser <- add_option(parser, c("--primary_keytype"),
                      help = "The keytype to use for mapping annotations (usually 'ENSEMBL' for most things; 'TAIR' for plants)")
 
@@ -54,10 +60,11 @@ args <- parse_args(parser)
 # args$metadata_dir <- "Metadata"
 # args$ref_dir <- "Reference_Genome_Files"
 # args$methylkit_output_dir <- "MethylKit_Outputs"
-# args$limit_samples_to <- 3
+# args$limit_samples_to <- 6
 # args$ref_genome_string <- "Mmus_GRCm39"
 # args$ref_annotations_tab_link <- "https://figshare.com/ndownloader/files/36597114"
-# args$mc_cores <- 4
+# args$getMethylDiff_difference <- 1
+# args$getMethylDiff_qvalue <- 0.9
 # args$primary_keytype <- "ENSEMBL"
 
 ############################################
@@ -246,7 +253,7 @@ bismark_cov_paths <- order_input_files(sample_names, bismark_cov_paths)
 samples_and_covs_paths_df <- data.frame("sample_id" = sample_names, "coverage_file_path" = bismark_cov_paths)
 
 ## GeneLab combines all factors and just runs those contrasts, so doing things that way
-# a lot of this comes from Jonathan Oribello's work in the GeneLab RNAseq workflow
+# a lot of this initial structuring comes from Jonathan Oribello's work in the GeneLab RNAseq workflow
 study_df <- factor_df %>% column_to_rownames("sample_id")
 
 # if there are multiple factors, here we are concatenating them to make one combined one
@@ -257,20 +264,36 @@ names(safe_group_names) <- group_names
 
 samples_and_combined_factors_df <- data.frame("sample_id" = sample_names, "combined_factor" = safe_group_names)
 
+if ( args$v ) { cat("\nSamples and factors df:\n") ; print(samples_and_combined_factors_df) ; cat("\n") }
+
+
 ##### Format contrasts table, defining pairwise comparisons for all groups #####
 contrasts <- combn(levels(factor(safe_group_names)), 2) # generate matrix of pairwise group combinations for comparison
 contrast.names <- combn(levels(factor(names(safe_group_names))), 2)
 
-contrast.names <- c(paste(contrast.names[1,], contrast.names[2,], sep = "v"), 
-                    paste(contrast.names[2,], contrast.names[1,], sep = "v"))
 
-contrasts <- cbind(contrasts, contrasts[c(2,1),])
+####### NOTE TO MIKE DURING DEV #######
+# this is about output A vs B AND B vs A, as is currently done with RNAseq (both are done and output)
+    # unlike with deseq2, each contrast needs to be re-run to have the outputs the other way
+    # not all the output info can go in one table (by just adding columns), so we are doubling all files by reporting both
+# so i think ultimately we shouldn't do all contrasts both ways with methylseq data
+#######################################
+
+## this way would be if doing A vs B and B vs A
+# contrast.names <- c(paste(contrast.names[1,], contrast.names[2,], sep = "v"), 
+#                     paste(contrast.names[2,], contrast.names[1,], sep = "v"))
+# contrasts <- cbind(contrasts, contrasts[c(2,1),])
+
+## this way is only doing one-way contrasts
+contrast.names <- paste(contrast.names[1,], contrast.names[2,], sep = "v")
 colnames(contrasts) <- contrast.names
 
 if ( args$v ) { cat("\nContrasts table:\n") ; print(contrasts) ; cat("\n") }
 
 # making a single table with info needed for methylkit
 sample_meth_info_df <- full_join(samples_and_covs_paths_df, samples_and_combined_factors_df, "sample_id")
+
+if ( args$v ) { cat("\nPrimary methylkit df:\n") ; print(sample_meth_info_df) ; cat("\n") }
 
 # making output directory
 dir.create(args$methylkit_output_dir, showWarnings = FALSE)
@@ -293,17 +316,9 @@ functional_annots_tab <-
 
 
 ############################################
-########## getting into methylkit ##########
+########## moving onto methylkit ##########
 ############################################
 
-
-####### NOTE TO MIKE DURING DEV #######
-# this is about output A vs B AND B vs A, as is currently done with RNAseq
-# unlike with deseq2:
-    # each contrast needs to be re-run to have the outputs the other way
-    # not all the output info can go in one table, so we are doubling all files by reporting both
-# so i think ultimately we shouldn't do all contrasts both ways with methylseq data
-#######################################
 
 ### looping through contrasts and running methylkit and creating outputs for each ###
 for ( i in 1:dim(contrasts)[2]) { 
@@ -333,11 +348,11 @@ for ( i in 1:dim(contrasts)[2]) {
         
         if ( value == curr_sample_info_df$combined_factor[1] ) {
             
-            curr_treatment_vec <- c(curr_treatment_vec, 0)
+            curr_treatment_vec <- c(curr_treatment_vec, 1)
             
         } else {
             
-            curr_treatment_vec <- c(curr_treatment_vec, 1)
+            curr_treatment_vec <- c(curr_treatment_vec, 0)
             
         }
 
@@ -360,49 +375,27 @@ for ( i in 1:dim(contrasts)[2]) {
     # calculating differential methylation
     curr_myDiff <- calculateDiffMeth(curr_meth, mc.cores = args$mc_cores)
     
-    # getting hyper methylated bases
-    # curr_myDiff25p.hyper <- getMethylDiff(curr_myDiff, difference = 25, qvalue = 0.01, type = "hyper")
-    
-    ##### TEST VALUES ONLY - REPLACE WITH ABOVE WHEN DONE #####
-    curr_myDiff25p.hyper <- getMethylDiff(curr_myDiff, difference = 5, qvalue = 0.9, type = "hyper")
-    ###########################################################
-    
-    # making table for writing out
-    curr_sig_bases_hyper_out_tab <- getData(curr_myDiff25p.hyper) %>% arrange(qvalue)
-    
-    # getting hypo methylated bases
-    # curr_myDiff25p.hypo <- getMethylDiff(curr_myDiff, difference = 25, qvalue = 0.01, type = "hypo")
-    
-    ##### TEST VALUES ONLY - REPLACE WITH ABOVE WHEN DONE #####
-    curr_myDiff25p.hypo <- getMethylDiff(curr_myDiff, difference = 5, qvalue = 0.9, type = "hypo")
-    ###########################################################
-    
-    # making table for writing out
-    curr_sig_bases_hypo_out_tab <- getData(curr_myDiff25p.hypo) %>% arrange(qvalue)
-    
-    # getting all differentially methylated bases
-    # curr_myDiff25p <- getMethylDiff(curr_myDiff, difference = 25, qvalue = 0.01)
-    
-    ##### TEST VALUES ONLY - REPLACE WITH ABOVE WHEN DONE #####
-    curr_myDiff25p <- getMethylDiff(curr_myDiff, difference = 5, qvalue = 0.9)
-    ###########################################################
-    
-    # making table for writing out
-    curr_sig_bases_all_out_tab <- getData(curr_myDiff25p) %>% arrange(qvalue)
-    
-    # writing out tables
-    curr_sig_bases_hyper_out_tab_path <- file.path(curr_output_dir, paste0(curr_output_prefix, "-sig-diff-hypermethylated-bases.tsv"))
-    write.table(curr_sig_bases_hyper_out_tab, curr_sig_bases_hyper_out_tab_path, 
-                sep = "\t", quote = FALSE, row.names = FALSE)
-    
-    curr_sig_bases_hypo_out_tab_path <- file.path(curr_output_dir, paste0(curr_output_prefix, "-sig-diff-hypomethylated-bases.tsv"))
-    write.table(curr_sig_bases_hypo_out_tab, curr_sig_bases_hypo_out_tab_path, 
-                sep = "\t", quote = FALSE, row.names = FALSE)
+    # getting just sig hyper-methlated bases
+    curr_myDiff25p.hyper <- getMethylDiff(curr_myDiff, difference = args$getMethylDiff_difference, 
+                                          qvalue = args$getMethylDiff_qvalue, type = "hyper")
 
-    curr_sig_bases_all_out_tab_path <- file.path(curr_output_dir, paste0(curr_output_prefix, "-sig-diff-methylated-bases.tsv"))
-    write.table(curr_sig_bases_all_out_tab, curr_sig_bases_all_out_tab_path, 
-                sep = "\t", quote = FALSE, row.names = FALSE)
+    # getting df of just sig hyper-methylated bases
+    curr_sig_bases_hyper_tab <- getData(curr_myDiff25p.hyper) %>% arrange(qvalue)
     
+    # getting just sig hypo-methylated bases
+    curr_myDiff25p.hypo <- getMethylDiff(curr_myDiff, difference = args$getMethylDiff_difference,
+                                         qvalue = args$getMethylDiff_qvalue, type = "hypo")
+
+    # getting df of just sig hypo-methylated bases
+    curr_sig_bases_hypo_tab <- getData(curr_myDiff25p.hypo) %>% arrange(qvalue)
+    
+    # getting all sig differentially methylated bases
+    curr_myDiff25p <- getMethylDiff(curr_myDiff, difference = args$getMethylDiff_difference,
+                                    qvalue = args$getMethylDiff_qvalue)
+
+    # getting df of all sig methylated bases
+    curr_sig_bases_all_tab <- getData(curr_myDiff25p) %>% arrange(qvalue)
+
     
     ### Tile analysis ###
     # tiling
@@ -414,119 +407,171 @@ for ( i in 1:dim(contrasts)[2]) {
     # calculating differential methylation on tiles
     curr_tiles_diff <- calculateDiffMeth(curr_tiles_meth, mc.cores = args$mc_cores)
     
-    # getting hyper methylated tiles
-    # curr_tiles_myDiff25p.hyper <- getMethylDiff(curr_tiles_diff, difference = 25, qvalue = 0.01, type = "hyper")
+    # getting sig hyper-methylated tiles
+    curr_tiles_myDiff25p.hyper <- getMethylDiff(curr_tiles_diff, difference = args$getMethylDiff_difference, 
+                                                qvalue = args$getMethylDiff_qvalue, type = "hyper")
 
-    ##### TEST VALUES ONLY - REPLACE WITH ABOVE WHEN DONE #####
-    curr_tiles_myDiff25p.hyper <- getMethylDiff(curr_tiles_diff, difference = 1, qvalue = 0.9, type = "hyper")
-    ###########################################################
+    # getting table of sig hyper-methylated tiles
+    curr_tiles_sig_hyper_tab <- getData(curr_tiles_myDiff25p.hyper) %>% arrange(qvalue)
     
-    # making table for writing out
-    curr_tiles_sig_hyper_out_tab <- getData(curr_tiles_myDiff25p.hyper) %>% arrange(qvalue)
-    
-    # getting hypo methylated tiles
-    # curr_tiles_myDiff25p.hypo <- getMethylDiff(curr_tiles_diff, difference = 25, qvalue = 0.01, type = "hypo")
+    # getting sig hypo-methylated tiles
+    curr_tiles_myDiff25p.hypo <- getMethylDiff(curr_tiles_diff, difference = args$getMethylDiff_difference, 
+                                               qvalue = args$getMethylDiff_qvalue, type = "hypo")
 
-    ##### TEST VALUES ONLY - REPLACE WITH ABOVE WHEN DONE #####
-    curr_tiles_myDiff25p.hypo <- getMethylDiff(curr_tiles_diff, difference = 1, qvalue = 0.9, type = "hypo")
-    ###########################################################
+    # getting table of sig hypo-methylated tiles
+    curr_tiles_sig_hypo_tab <- getData(curr_tiles_myDiff25p.hypo) %>% arrange(qvalue)
     
-    # making table for writing out
-    curr_tiles_sig_hypo_out_tab <- getData(curr_tiles_myDiff25p.hypo) %>% arrange(qvalue)
-    
-    # getting all differentially methylated tiles
-    # curr_tiles_myDiff25p <- getMethylDiff(curr_tiles_diff, difference = 25, qvalue = 0.01)
+    # getting all sig differentially methylated tiles
+    curr_tiles_myDiff25p <- getMethylDiff(curr_tiles_diff, difference = args$getMethylDiff_difference, 
+                                          qvalue = args$getMethylDiff_qvalue)
 
-    ##### TEST VALUES ONLY - REPLACE WITH ABOVE WHEN DONE #####
-    curr_tiles_myDiff25p <- getMethylDiff(curr_tiles_diff, difference = 1, qvalue = 0.9)
-    ###########################################################
-    
-    # making table for writing out
-    curr_sig_tiles_all_out_tab <- getData(curr_tiles_myDiff25p) %>% arrange(qvalue)
-    
-    
-    # writing out tables
-    curr_tiles_sig_hyper_out_tab_path <- file.path(curr_output_dir, paste0(curr_output_prefix, "-sig-diff-hypermethylated-tiles.tsv"))
-    write.table(curr_tiles_sig_hyper_out_tab, curr_tiles_sig_hyper_out_tab_path, 
-                sep = "\t", quote = FALSE, row.names = FALSE)
-
-    curr_tiles_sig_hypo_out_tab_path <- file.path(curr_output_dir, paste0(curr_output_prefix, "-sig-diff-hypomethylated-tiles.tsv"))
-    write.table(curr_tiles_sig_hypo_out_tab, curr_tiles_sig_hypo_out_tab_path,
-                sep = "\t", quote = FALSE, row.names = FALSE)
-
-    curr_sig_tiles_all_out_tab_path <- file.path(curr_output_dir, paste0(curr_output_prefix, "-sig-diff-methylated-tiles.tsv"))
-    write.table(curr_sig_tiles_all_out_tab, curr_sig_tiles_all_out_tab_path, 
-                sep = "\t", quote = FALSE, row.names = FALSE)
+    # making table of all sig differentially methylated tiles
+    curr_sig_tiles_all_tab <- getData(curr_tiles_myDiff25p) %>% arrange(qvalue)
     
     
     ### Adding feature information ###
     
-    ## adding features to individual-base object
+    ## adding features to individual-base objects
     curr_diffAnn <- annotateWithGeneParts(as(curr_myDiff25p, "GRanges"), gene.obj)
+    curr_diffAnn.hyper <- annotateWithGeneParts(as(curr_myDiff25p.hyper, "GRanges"), gene.obj)
+    curr_diffAnn.hypo <- annotateWithGeneParts(as(curr_myDiff25p.hypo, "GRanges"), gene.obj)
     
-    # making base-level sig table with features 
+    # making base-level sig tables with features 
     curr_sig_all_bases_tab_with_features <- cbind(data.frame(curr_myDiff25p), 
                                                   getAssociationWithTSS(curr_diffAnn), 
                                                   as.data.frame(getMembers(curr_diffAnn))) %>% .[,-c(8)]
-    
 
-    # writing out
-    curr_sig_all_bases_tab_with_features_path <- file.path(curr_output_dir, paste0(curr_output_prefix, "-sig-diff-methylated-bases-with-features.tsv"))
-    write.table(curr_sig_all_bases_tab_with_features, curr_sig_all_bases_tab_with_features_path, 
-                sep = "\t", quote = FALSE, row.names = FALSE)
+    curr_sig_hyper_bases_tab_with_features <- cbind(data.frame(curr_myDiff25p.hyper), 
+                                                    getAssociationWithTSS(curr_diffAnn.hyper), 
+                                                    as.data.frame(getMembers(curr_diffAnn.hyper))) %>% .[,-c(8)]
+    
+    curr_sig_hypo_bases_tab_with_features <- cbind(data.frame(curr_myDiff25p.hypo), 
+                                                   getAssociationWithTSS(curr_diffAnn.hypo), 
+                                                   as.data.frame(getMembers(curr_diffAnn.hypo))) %>% .[,-c(8)]
     
     
-    ## adding features to tiles object
+    ## adding features to tiles objects
     curr_tiles_diffAnn <- annotateWithGeneParts(as(curr_tiles_myDiff25p, "GRanges"), gene.obj)
+    curr_tiles_diffAnn.hyper <- annotateWithGeneParts(as(curr_tiles_myDiff25p.hyper, "GRanges"), gene.obj)
+    curr_tiles_diffAnn.hypo <- annotateWithGeneParts(as(curr_tiles_myDiff25p.hypo, "GRanges"), gene.obj)
     
-    # making tiles sig table with features 
-    curr_tiles_sig_all_out_tab_with_features <- cbind(data.frame(curr_tiles_myDiff25p), 
-                                                      getAssociationWithTSS(curr_tiles_diffAnn), 
-                                                      as.data.frame(getMembers(curr_tiles_diffAnn))) %>% .[,-c(8)]
+    # making tiles sig tables with features 
+    curr_tiles_sig_all_tab_with_features <- cbind(data.frame(curr_tiles_myDiff25p), 
+                                                  getAssociationWithTSS(curr_tiles_diffAnn), 
+                                                  as.data.frame(getMembers(curr_tiles_diffAnn))) %>% .[,-c(8)]
     
-    # writing out
-    curr_sig_tiles_tab_with_features_path <- file.path(curr_output_dir, paste0(curr_output_prefix, "-sig-diff-methylated-tiles-with-features.tsv"))
-    write.table(curr_tiles_sig_all_out_tab_with_features, curr_sig_tiles_tab_with_features_path, 
-                sep = "\t", quote = FALSE, row.names = FALSE)
+    curr_tiles_sig_hyper_tab_with_features <- cbind(data.frame(curr_tiles_myDiff25p.hyper), 
+                                                    getAssociationWithTSS(curr_tiles_diffAnn.hyper), 
+                                                    as.data.frame(getMembers(curr_tiles_diffAnn.hyper))) %>% .[,-c(8)]
     
+    curr_tiles_sig_hypo_tab_with_features <- cbind(data.frame(curr_tiles_myDiff25p.hypo), 
+                                                   getAssociationWithTSS(curr_tiles_diffAnn.hypo), 
+                                                   as.data.frame(getMembers(curr_tiles_diffAnn.hypo))) %>% .[,-c(8)]
+
     
     ### Adding functional annotations ###
     
-    ## for individual-base output
+    ## for individual-base outputs
     # for each transcript ID in the sig_all_bases_tab_with_features table, getting 
     # its corresponding gene ID and adding that to the table
     curr_sig_all_bases_tab_with_features_and_gene_IDs <- 
         left_join(curr_sig_all_bases_tab_with_features, gene_transcript_map)
+
+    curr_sig_hyper_bases_tab_with_features_and_gene_IDs <- 
+        left_join(curr_sig_hyper_bases_tab_with_features, gene_transcript_map)
+
+    curr_sig_hypo_bases_tab_with_features_and_gene_IDs <- 
+        left_join(curr_sig_hypo_bases_tab_with_features, gene_transcript_map)
     
     # now adding full annotations
     curr_sig_all_bases_tab_with_features_and_annots <- 
         left_join(curr_sig_all_bases_tab_with_features_and_gene_IDs, 
                   functional_annots_tab, by = c("gene_ID" = args$primary_keytype))
+
+    curr_sig_hyper_bases_tab_with_features_and_annots <- 
+        left_join(curr_sig_hyper_bases_tab_with_features_and_gene_IDs, 
+                  functional_annots_tab, by = c("gene_ID" = args$primary_keytype))
     
+    curr_sig_hypo_bases_tab_with_features_and_annots <- 
+        left_join(curr_sig_hypo_bases_tab_with_features_and_gene_IDs, 
+                  functional_annots_tab, by = c("gene_ID" = args$primary_keytype))
+    
+            
     # and writing out
     curr_sig_all_bases_tab_with_features_and_annots_path <- 
-        file.path(curr_output_dir, paste0(curr_output_prefix, "-sig-diff-methylated-bases-with-features-and-annots.tsv"))
+        file.path(curr_output_dir, paste0(curr_output_prefix, "-sig-diff-methylated-bases.tsv"))
     
     write.table(curr_sig_all_bases_tab_with_features_and_annots, curr_sig_all_bases_tab_with_features_and_annots_path, 
                 sep = "\t", quote = FALSE, row.names = FALSE)
+    
+    curr_sig_hyper_bases_tab_with_features_and_annots_path <- 
+        file.path(curr_output_dir, paste0(curr_output_prefix, "-sig-diff-hypermethylated-bases.tsv"))
+    
+    write.table(curr_sig_hyper_bases_tab_with_features_and_annots, curr_sig_hyper_bases_tab_with_features_and_annots_path, 
+                sep = "\t", quote = FALSE, row.names = FALSE)
+    
+    curr_sig_hypo_bases_tab_with_features_and_annots_path <- 
+        file.path(curr_output_dir, paste0(curr_output_prefix, "-sig-diff-hypomethylated-bases.tsv"))
+    
+    write.table(curr_sig_hypo_bases_tab_with_features_and_annots, curr_sig_hypo_bases_tab_with_features_and_annots_path, 
+                sep = "\t", quote = FALSE, row.names = FALSE)
+    
     
     ## for tiles output
     # for each transcript ID in the tiles_sig_all_out_tab_with_features table, getting 
     # its corresponding gene ID and adding that to the table
     curr_sig_all_tiles_tab_with_features_and_gene_IDs <- 
-        left_join(curr_tiles_sig_all_out_tab_with_features, gene_transcript_map)
+        left_join(curr_tiles_sig_all_tab_with_features, gene_transcript_map)
+    
+    curr_sig_hyper_tiles_tab_with_features_and_gene_IDs <- 
+        left_join(curr_tiles_sig_hyper_tab_with_features, gene_transcript_map)
+    
+    curr_sig_hypo_tiles_tab_with_features_and_gene_IDs <- 
+        left_join(curr_tiles_sig_hypo_tab_with_features, gene_transcript_map)
     
     # now adding full annotations
     curr_sig_all_tiles_tab_with_features_and_annots <- 
         left_join(curr_sig_all_tiles_tab_with_features_and_gene_IDs, 
                   functional_annots_tab, by = c("gene_ID" = "ENSEMBL"))
     
+    curr_sig_hyper_tiles_tab_with_features_and_annots <- 
+        left_join(curr_sig_hyper_tiles_tab_with_features_and_gene_IDs, 
+                  functional_annots_tab, by = c("gene_ID" = "ENSEMBL"))
+    
+    curr_sig_hypo_tiles_tab_with_features_and_annots <- 
+        left_join(curr_sig_hypo_tiles_tab_with_features_and_gene_IDs, 
+                  functional_annots_tab, by = c("gene_ID" = "ENSEMBL"))
+    
     # and writing out
     curr_sig_all_tiles_tab_with_features_and_annots_path <- 
-        file.path(curr_output_dir, paste0(curr_output_prefix, "-sig-diff-methylated-tiles-with-features-and-annots.tsv"))
+        file.path(curr_output_dir, paste0(curr_output_prefix, "-sig-diff-methylated-tiles.tsv"))
     
     write.table(curr_sig_all_tiles_tab_with_features_and_annots, curr_sig_all_tiles_tab_with_features_and_annots_path, 
                 sep = "\t", quote = FALSE, row.names = FALSE)
+    
+    curr_sig_hyper_tiles_tab_with_features_and_annots_path <- 
+        file.path(curr_output_dir, paste0(curr_output_prefix, "-sig-diff-hypermethylated-tiles.tsv"))
+    
+    write.table(curr_sig_hyper_tiles_tab_with_features_and_annots, curr_sig_hyper_tiles_tab_with_features_and_annots_path, 
+                sep = "\t", quote = FALSE, row.names = FALSE)
+    
+    curr_sig_hypo_tiles_tab_with_features_and_annots_path <- 
+        file.path(curr_output_dir, paste0(curr_output_prefix, "-sig-diff-hypomethylated-tiles.tsv"))
+    
+    write.table(curr_sig_hypo_tiles_tab_with_features_and_annots, curr_sig_hypo_tiles_tab_with_features_and_annots_path, 
+                sep = "\t", quote = FALSE, row.names = FALSE)
+    
+    
+    ### Making overview figure of percent diff. methylation across features ###
+    curr_sig_diff_bases_across_features_plot_path <- file.path(curr_output_dir, paste0(curr_output_prefix, "-sig-diff-methylated-bases-across-features.pdf"))
+    pdf(curr_sig_diff_bases_across_features_plot_path)
+    plotTargetAnnotation(curr_diffAnn, precedence = TRUE, main = "% of sig. diff. methylated sites across features")
+    dev.off()
+    
+    curr_sig_diff_tiles_across_features_plot_path <- file.path(curr_output_dir, paste0(curr_output_prefix, "-sig-diff-methylated-tiles-across-features.pdf"))
+    pdf(curr_sig_diff_tiles_across_features_plot_path)
+    plotTargetAnnotation(curr_tiles_diffAnn, precedence = TRUE, main = "% of sig. diff. methylated tiles across features")
+    dev.off()
     
 }
 
@@ -550,7 +595,6 @@ perc.meth <- perc.meth %>% data.frame() %>% rownames_to_column("location")
 
 # writing out
 perc.meth_path <- file.path(args$methylkit_output_dir, "base-level-percent-methylated.tsv")
-
 write.table(perc.meth, perc.meth_path, sep = "\t", quote = FALSE, row.names = FALSE)
 
 ### making and writing out a table of tile-level percent methylated (contrasts don't matter here)
@@ -561,5 +605,4 @@ tiles_perc.meth <- percMethylation(tiles_meth, rowids = TRUE)
 tiles_perc.meth <- tiles_perc.meth %>% data.frame() %>% rownames_to_column("location")
 
 tiles_perc.meth_path <- file.path(args$methylkit_output_dir, "tile-level-percent-methylated.tsv")
-
 write.table(tiles_perc.meth, tiles_perc.meth_path, sep = "\t", quote = FALSE, row.names = FALSE)
