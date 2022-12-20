@@ -15,9 +15,7 @@ parser <- add_option(parser, c("--bismark_methylation_calls_dir"),
                      default = "Bismark_Methylation_calls",
                      help = "Directory holding *bismark.cov.gz files")
 
-parser <- add_option(parser, c("--metadata_dir"),
-                     default = "Metadata",
-                     help = "Directory holding metadata files")
+parser <- add_option(parser, c("--path_to_runsheet"), help = "Path to the runsheet")
 
 parser <- add_option(parser, c("--ref_dir"),
                      default = "Reference_Genome_Files",
@@ -57,7 +55,7 @@ args <- parse_args(parser)
 
 # args$v <- TRUE
 # args$bismark_methylation_calls_dir <- "Bismark_Methylation_Calls"
-# args$metadata_dir <- "Metadata"
+# args$path_to_runsheet <- "Metadata/GLDS-397_methylSeq_v1_runsheet.csv"
 # args$ref_dir <- "Reference_Genome_Files"
 # args$methylkit_output_dir <- "MethylKit_Outputs"
 # args$limit_samples_to <- 6
@@ -67,6 +65,19 @@ args <- parse_args(parser)
 # args$getMethylDiff_qvalue <- 0.9
 # args$primary_keytype <- "ENSEMBL"
 
+# args$v <- TRUE
+# args$bismark_methylation_calls_dir <- "Bismark_Methylation_Calls"
+# args$path_to_runsheet <- "test-reads/test-runsheet.csv"
+# args$ref_dir <- "Reference_Genome_Files"
+# args$methylkit_output_dir <- "MethylKit_Outputs"
+# args$limit_samples_to <- 6
+# args$ref_genome_string <- "Mmus_GRCm39"
+# args$ref_annotations_tab_link <- "https://figshare.com/ndownloader/files/36597114"
+# args$getMethylDiff_difference <- 1
+# args$getMethylDiff_qvalue <- 0.9
+# args$primary_keytype <- "ENSEMBL"
+
+
 ############################################
 
 
@@ -75,17 +86,19 @@ args <- parse_args(parser)
 ############################################
 
 # checking required arguments were set
-required_args <- c("ref_genome_string" = "--ref_genome_string",
+required_args <- c("path_to_runsheet" = "--path_to_runsheet",
+                   "ref_genome_string" = "--ref_genome_string",
                    "ref_annotations_tab_link" = "--ref_annotations_tab_link",
                    "primary_keytype" = "--primary_keytype")
-
 
 for ( arg in names(required_args) ) {
 
     tryCatch( { get(arg, args) }, error = function(e) { 
               
-                      stop(cat("\nThe '", as.character(required_args[arg]),
-                               "' argument must be provided. Cannot proceed.\n", sep = ""), call. = FALSE)
+        error_message = paste0("\n  The '", as.character(required_args[arg]),
+                            "' argument must be provided.\nCannot proceed.\n\n")
+        
+        stop(error_message, call. = FALSE)
 
     })
     
@@ -95,8 +108,18 @@ for ( arg in names(required_args) ) {
 currently_accepted_keytypes <- c("ENSEMBL", "TAIR")
 if ( ! args$primary_keytype %in% currently_accepted_keytypes ) {
     
-    stop(cat("\nThe current potential --primary_keytypes are:", currently_accepted_keytypes,
-             "\nCannot proceed with:", args$primary_keytype, "\n"), call. = FALSE)
+    error_message = paste0("\n  The current potential --primary_keytypes are: ", paste(currently_accepted_keytypes, collapse = ", "),
+                           "\nCannot proceed with: ", args$primary_keytype, "\n\n")
+    
+    stop(error_message, call. = FALSE)
+    
+}
+
+# checking runsheet file exists
+if ( ! file.exists(args$path_to_runsheet) ) {
+    
+    stop("\n  The specified --path_to_runsheet does not seem to point to an actual file.\nCannot proceed.\n\n", call. = FALSE)
+
 }
 
 ############################################
@@ -120,9 +143,9 @@ get_single_file_path <- function(target_dir, search_pattern) {
     # checking only one was found matching pattern search
     if ( length(hits) != 1 ) { 
         
-        error_message <- cat("\nA single file was not found in the ", target_dir,
+        error_message <- paste0("\n  A single file was not found in the ", target_dir,
                              " directory based on the search pattern '",
-                             search_pattern, "'. Cannot proceed.\n", sep = "")
+                             search_pattern, "'.\nCannot proceed.\n\n")
         
         stop(error_message, call. = FALSE)
     }
@@ -147,7 +170,7 @@ order_input_files <- function(sample_names, paths) {
         # making sure there is exactly one match
         if ( length(hits) != 1 ) {
             
-            stop("\nThere was a problem matching up sample names with their coverage files. Cannot proceed.\n", call. = FALSE)
+            stop("\n  There was a problem matching up sample names with their coverage files.\nCannot proceed.\n\n", call. = FALSE)
             
         }
         
@@ -173,12 +196,8 @@ ref_bed_path <- get_single_file_path(args$ref_dir, ".*.bed")
 ### finding reference gene-to-transcript mapping file
 ref_gene_transcript_map_path <- get_single_file_path(args$ref_dir, ".*-gene-to-transcript-map.tsv")
 
-
-### getting path to runsheet
-runsheet_path <- get_single_file_path(args$metadata_dir, ".*_runsheet.csv")
-
-# reading runsheet
-runsheet <- read.csv(runsheet_path)
+### reading runsheet
+runsheet <- read.csv(args$path_to_runsheet)
 
 ### getting all factors
 # mock factors if wanted for testing
@@ -196,9 +215,10 @@ for ( factor in colnames(factors)) {
 
     if ( length(curr_unique_entries) > 2 ) {
 
-        error_message <- cat("\nOne of the factors has more than two entries:\n\n  ",
-                             print(curr_unique_entries),
-                             "\n\nOnly pairwise comparisons can be done currently. Exiting for now.\n")
+        error_message <- paste0("\n  One of the factors has more than two entries:\n\n  ",
+                             paste(curr_unique_entries, collapse = ", "),
+                             "\n\n  Only pairwise comparisons can be done currently. Cannot proceed.\n\n")
+        
         stop(error_message, call. = FALSE)
 
     }
@@ -237,9 +257,10 @@ bismark_cov_paths <- list.files(args$bismark_methylation_calls_dir, pattern = ".
 # making sure files list matches length of runsheet
 if ( dim(runsheet)[1] != length(bismark_cov_paths) ) {
 
-    error_message <- cat("\nThe number of '*.bismark.cov.gz' files found in the", 
+    error_message <- paste0("\n  The number of '*.bismark.cov.gz' files found in the", 
                          args$bismark_methylation_calls_dir, 
-                         "directory does not match the number of samples specified in the runsheet. Cannot proceed.\n")
+                         " directory\n  does not match the number of samples specified in the runsheet.\nCannot proceed.\n\n")
+    
     stop(error_message, call. = FALSE)
     
 }
