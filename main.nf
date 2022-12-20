@@ -83,25 +83,6 @@ if ( params.non_directional == true ) {
 }
 
 
-
-
-/* **** checking specified target_organism is available **** */
-// if ( params.target_organism !in params.accepted_target_orgs ) {
-
-//     println "\n    ${RED}No suitable 'target_organism' was set in nextflow.config file.${NC}"
-//     println "\n    Currently available options are:\n"
-//     for ( org in params.accepted_target_orgs ) {
-
-//         println "        ${org}"
-
-//     }
-
-//     println "\n  Exiting for now.\n"
-
-//     exit 1
-
-// }
-
 /* **** checking lib_type set in nextflow.config **** */
 if ( params.lib_type !in params.accepted_lib_types ) {
 
@@ -111,55 +92,6 @@ if ( params.lib_type !in params.accepted_lib_types ) {
     exit 1
 
 }
-
-/* **** checking specified input_reads_dir exists **** */
-// if ( ! file( params.input_reads_dir ).exists() ) {
-
-//     println "\n    ${RED}The specified '${params.input_reads_dir}' directory set in nextflow.config can't be found.${NC}"
-//     println "\n  Exiting for now.\n"
-
-//     exit 1
-
-// }
-
-/* **** checking for gzipped reads (anything ending with fq.gz or fastq.gz) **** */
-// creating and adding files to list
-// input_file_list = []
-// file(params.input_reads_dir).eachFileMatch(~/.*fastq.gz|.*.fq.gz/) { target_file ->
-
-//     input_file_list << target_file
-
-// }
-
-// exiting and reporting if none found
-// if ( input_file_list.size() == 0 ) {
-
-//     println "\n    ${RED}No gzipped fastq files were found in the specified ${params.input_reads_dir} directory set in nextflow.config.${NC}"
-//     println "  Exiting for now.\n"
-
-//     exit 1
-
-// }
-
-// Right now i can't get fastqc/multiqc to retain things like "_trimmed" in the filenames, so
-// things are getting collapsed if the input files don't end with "_raw".
-// Putting in a stop-gap for now that exits if the input files don't include "_raw":
-// for ( input_file in input_file_list ) {
-
-//     if ( ! input_file.toString().endsWith("_raw.fastq.gz") ) {
-        
-//         if ( ! input_file.toString().endsWith("_raw.fq.gz") ) {
-
-//             println "\n    ${RED}Currently the input read files need to have a suffix like '_raw.fastq.gz' or '_raw.fq.gz'.${NC}"
-//             println "  Exiting for now.\n"
-
-//             exit 1
-
-//         }
-
-//     }
-
-// }
 
 
 ////////////////////////////////////////////////////
@@ -223,10 +155,14 @@ workflow {
 
     } else {
 
-        println "\n    ${RED}We're not ready to take a user-provided run sheet yet :(${NC}"
-        println "\n  Exiting for now.\n"
+        // setting glds_acc channel to null
+        ch_glds_accession = null
+        STAGING( ch_glds_accession, params.stageLocal )
 
-        exit 1
+        // println "\n    ${RED}We're not ready to take a user-provided run sheet yet :(${NC}"
+        // println "\n  Exiting for now.\n"
+
+        // exit 1
 
     }
 
@@ -239,15 +175,6 @@ workflow {
                             view { meta -> "${YELLOW}  Autodetected Processing Metadata:\n\t pairedEND: ${meta.paired_end}\n\t organism: ${meta.organism_sci}${NC}" } |
                             set { ch_meta }
 
-    // // // detecting input reads and removing extensions from their unique sample names
-    // // ch_input_reads = Channel.fromFilePairs( input_file_list, size: params.single_end ? 1 : 2 ) { file -> file.name.replaceAll( /.fastq.gz|.fq.gz|_raw.fastq.gz|_raw.fq.gz/, '' ) }
-    
-    // // // writing out unique sample names to file and setting to channel
-    // // ch_input_reads | map { it -> it[0] } |
-    // //                  collectFile( name: 'samples.txt', newLine: true, storeDir: "./" ) |
-    // //                  set { ch_samples_txt }
-
-    
 
     // raw fastqc on input reads
     RAW_FASTQC( ch_input_reads )
@@ -280,9 +207,6 @@ workflow {
 
     // multiqc on raw fastqc outputs
     TRIMMED_MULTIQC( ch_trimmed_mqc_inputs )
-
-    // // // setting input reference fasta file channel
-    // // ch_input_ref = Channel.fromPath( params.genome, checkIfExists: true )
 
     // getting target reference info 
     PARSE_ANNOTATIONS_TABLE( params.reference_table_url, ch_meta.organism_sci )

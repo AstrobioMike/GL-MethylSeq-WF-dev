@@ -1,5 +1,4 @@
 .DS_Store
-MethylKit_Outputs/
 .nextflow*
 results/
 work/
@@ -9,3 +8,9 @@ samples.txt
 Filtered_Sequence_Data/
 Reference_Genome_Files/
 Metadata/
+MethylKit_Outputs/
+test-reads/
+test-MethylKit_Outputs/
+test-data/
+test-meth-calls/
+test-ref-files/

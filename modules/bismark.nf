@@ -49,7 +49,7 @@ process ALIGN {
         fastq_files = params.single_end ? reads : "-1 ${reads[0]} -2 ${reads[1]}"
 
         """
-        bismark --bam -p ${params.bismark_align_threads} --genome ${bismark_index_dir} ${non_directional} ${fastq_files}
+        bismark --bam --non_bs_mm -p ${params.bismark_align_threads} --genome ${bismark_index_dir} ${non_directional} ${fastq_files} 
         """
 
 }

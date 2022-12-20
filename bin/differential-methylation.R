@@ -35,6 +35,9 @@ parser <- add_option(parser, c("--ref_genome_string"),
 parser <- add_option(parser, c("--ref_annotations_tab_link"),
                      help = "Link to reference-genome annotations table")
 
+parser <- add_option(parser, c("--methRead_mincov"), default = 10, type = "integer",
+                     help = "Passed to mincov argument of methRead() call")
+
 parser <- add_option(parser, c("--mc_cores"), default = 4, type = "integer",
                      help = "Passed to mc.cores argument of calculateDiffMeth() call")
 
@@ -53,28 +56,24 @@ args <- parse_args(parser)
 ########### for testing purposes ###########
 ############################################
 
-# args$v <- TRUE
-# args$bismark_methylation_calls_dir <- "Bismark_Methylation_Calls"
-# args$path_to_runsheet <- "Metadata/GLDS-397_methylSeq_v1_runsheet.csv"
-# args$ref_dir <- "Reference_Genome_Files"
-# args$methylkit_output_dir <- "MethylKit_Outputs"
-# args$limit_samples_to <- 6
-# args$ref_genome_string <- "Mmus_GRCm39"
-# args$ref_annotations_tab_link <- "https://figshare.com/ndownloader/files/36597114"
-# args$getMethylDiff_difference <- 1
-# args$getMethylDiff_qvalue <- 0.9
-# args$primary_keytype <- "ENSEMBL"
+# small-test set testing
+    # can be retieved with
+    # curl -L -o MethylSeq-test-meth-call-cov-files.tar https://figshare.com/ndownloader/files/38616845
+    # tar -xvf MethylSeq-test-meth-call-cov-files.tar
+    # curl -L -o MethylSeq-test-ref-files.tar https://figshare.com/ndownloader/files/38616860
+    # tar -xvf MethylSeq-test-ref-files.tar
 
+# then these should be set
 # args$v <- TRUE
-# args$bismark_methylation_calls_dir <- "Bismark_Methylation_Calls"
-# args$path_to_runsheet <- "test-reads/test-runsheet.csv"
-# args$ref_dir <- "Reference_Genome_Files"
-# args$methylkit_output_dir <- "MethylKit_Outputs"
-# args$limit_samples_to <- 6
+# args$bismark_methylation_calls_dir <- "test-meth-calls"
+# args$path_to_runsheet <- "test-meth-calls/test-runsheet.csv"
+# args$ref_dir <- "test-ref-files"
+# args$methylkit_output_dir <- "test-MethylKit_Outputs"
 # args$ref_genome_string <- "Mmus_GRCm39"
 # args$ref_annotations_tab_link <- "https://figshare.com/ndownloader/files/36597114"
+# args$methRead_mincov <- 2
 # args$getMethylDiff_difference <- 1
-# args$getMethylDiff_qvalue <- 0.9
+# args$getMethylDiff_qvalue <- 0.5
 # args$primary_keytype <- "ENSEMBL"
 
 
@@ -273,8 +272,8 @@ bismark_cov_paths <- order_input_files(sample_names, bismark_cov_paths)
 # making table with filenames and bismark coverage file path
 samples_and_covs_paths_df <- data.frame("sample_id" = sample_names, "coverage_file_path" = bismark_cov_paths)
 
-## GeneLab combines all factors and just runs those contrasts, so doing things that way
-# a lot of this initial structuring comes from Jonathan Oribello's work in the GeneLab RNAseq workflow
+## GeneLab combines all factors and just runs those contrasts, so setting that up here
+# some of this initial structuring comes from Jonathan Oribello's work in the GeneLab RNAseq workflow, thanks Jonathan :)
 study_df <- factor_df %>% column_to_rownames("sample_id")
 
 # if there are multiple factors, here we are concatenating them to make one combined one
@@ -387,7 +386,7 @@ for ( i in 1:dim(contrasts)[2]) {
                          pipeline = "bismarkCoverage",
                          assembly = args$ref_genome_string,
                          header = FALSE,
-                         mincov = 10)
+                         mincov = args$methRead_mincov)
     
     ### Individual-base analysis
     # merging samples
@@ -607,7 +606,7 @@ obj <- methRead(location = as.list(sample_meth_info_df %>% pull(coverage_file_pa
                 pipeline = "bismarkCoverage",
                 assembly = args$ref_genome_string,
                 header = FALSE,
-                mincov = 10)
+                mincov = args$methRead_mincov)
 
 meth <- unite(obj)
 
