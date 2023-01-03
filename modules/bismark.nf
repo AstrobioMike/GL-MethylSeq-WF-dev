@@ -34,7 +34,8 @@ process ALIGN {
 
     tag "On: $meta.id"
 
-    publishDir params.bismark_alignments_dir, mode: 'link', pattern: "${ meta.id }_trimmed_bismark_*.bam"
+    // only keeping sorted bams, so blocking this publishDir out for now
+    // publishDir params.bismark_alignments_dir, mode: 'link', pattern: "${ meta.id }_trimmed_bismark_*.bam"
 
     input:
         tuple val(meta), path(reads), path( bismark_index_dir )
@@ -108,6 +109,8 @@ process EXTRACT_METHYLATION_CALLS {
 process GEN_BISMARK_SAMPLE_REPORT {
 
     tag "On: $meta"
+
+    publishDir params.individual_sample_reports, mode: 'link', pattern: "*.html"
 
     input:
         tuple val(meta), path(alignment_report), path(meth_calls_report), path(m_bias_report), file(dedupe_report)

@@ -34,18 +34,18 @@ process MULTIQC {
 
     output:
         path("${ params.MQCLabel }_multiqc.html"), emit: html
-        path("${ params.MQCLabel }_multiqc_report.zip"), emit: zipped_report
+        path("${ params.MQCLabel }_multiqc_data.zip"), emit: zipped_report
 
     script:
 
         """
-        multiqc --interactive -o ${ params.MQCLabel }_multiqc_report \
+        multiqc --interactive -o ${ params.MQCLabel }_multiqc_data \
                 -n ${ params.MQCLabel }_multiqc \
                 --config ${ params.multiqc_config } mqc_in/*
 
-        mv ${ params.MQCLabel }_multiqc_report/${ params.MQCLabel }_multiqc.html .
+        mv ${ params.MQCLabel }_multiqc_data/${ params.MQCLabel }_multiqc.html .
         
-        zip -m -r '${ params.MQCLabel }_multiqc_report.zip' '${ params.MQCLabel }_multiqc_report'
+        zip -m -r '${ params.MQCLabel }_multiqc_data.zip' '${ params.MQCLabel }_multiqc_data'
         """
 
 }
