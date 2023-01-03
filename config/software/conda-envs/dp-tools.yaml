@@ -5,7 +5,7 @@ channels:
     - defaults
 dependencies:
     - python=3.10.6
-    - samtools=1.15.1
+    - samtools=1.16.1
     - pip=22.2.2
     - pip:
         - https://github.com/J-81/dp_tools/archive/refs/tags/1.1.9.tar.gz
