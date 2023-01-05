@@ -92,13 +92,14 @@ if ( args$test ) {
     args$methylkit_output_dir <- "test-MethylKit_Outputs"
     args$ref_genome_string <- "Mmus_GRCm39"
     args$ref_annotations_tab_link <- "https://figshare.com/ndownloader/files/36597114"
-    args$methRead_mincov <- 2
-    args$getMethylDiff_difference <- 1
-    args$getMethylDiff_qvalue <- 0.5
+    # args$methRead_mincov <- 2
+    # args$getMethylDiff_difference <- 1
+    # args$getMethylDiff_qvalue <- 0.5
     args$primary_keytype <- "ENSEMBL"
 
 }
 
+if ( args$v ) { cat("\n  NOTICE\n  Verbose logging has been specified.\n\n") }
 
 ############################################
 
@@ -628,10 +629,12 @@ for ( i in 1:dim(contrasts)[2]) {
     
     } else {
         
-        writeLines(none_detected_message, file(curr_sig_all_bases_tab_with_features_and_annots_path))
-        
+        curr_file <- file(curr_sig_all_bases_tab_with_features_and_annots_path)
+        writeLines(none_detected_message, curr_file)
+        close(curr_file)
+
         std_err_message <- paste0("\n  NOTICE\n  There were no significantly differentially methylated sites identified in the \n  '", 
-                                  curr_output_prefix, "' contrast.\n")
+                                  curr_output_prefix, "' contrast.\n  You will see an 'In max(i)...' warning about this.\n")
         
         write(std_err_message, stderr())
         
@@ -649,10 +652,12 @@ for ( i in 1:dim(contrasts)[2]) {
         
     } else {
         
-        writeLines(none_detected_message, file(curr_sig_hyper_bases_tab_with_features_and_annots_path))
+        curr_file <- file(curr_sig_hyper_bases_tab_with_features_and_annots_path)
+        writeLines(none_detected_message, curr_file)
+        close(curr_file)
         
         std_err_message <- paste0("\n  NOTICE\n  There were no significantly differentially hypermethylated sites identified in the \n  '", 
-                                  curr_output_prefix, "' contrast.\n")
+                                  curr_output_prefix, "' contrast.\n  You will see an 'In max(i)...' warning about this.\n")
         
         write(std_err_message, stderr())
         
@@ -669,10 +674,12 @@ for ( i in 1:dim(contrasts)[2]) {
 
     } else {
         
-        writeLines(none_detected_message, file(curr_sig_hypo_bases_tab_with_features_and_annots_path))
+        curr_file <- file(curr_sig_hypo_bases_tab_with_features_and_annots_path)
+        writeLines(none_detected_message, curr_file)
+        close(curr_file)
         
         std_err_message <- paste0("\n  NOTICE\n  There were no significantly differentially hypomethylated sites identified in the \n  '", 
-                                  curr_output_prefix, "' contrast.\n")
+                                  curr_output_prefix, "' contrast.\n  You will see an 'In max(i)...' warning about this.\n")
         
         write(std_err_message, stderr())
         
@@ -730,10 +737,12 @@ for ( i in 1:dim(contrasts)[2]) {
 
     } else {
         
-        writeLines(none_detected_message, file(curr_sig_all_tiles_tab_with_features_and_annots_path))
+        curr_file <- file(curr_sig_all_tiles_tab_with_features_and_annots_path)
+        writeLines(none_detected_message, curr_file)
+        close(curr_file)
         
         std_err_message <- paste0("\n  NOTICE\n  There were no significantly differentially methylated tiles identified in the \n  '", 
-                                  curr_output_prefix, "' contrast.\n")
+                                  curr_output_prefix, "' contrast.\n  You will see an 'In max(i)...' warning about this.\n")
         
         write(std_err_message, stderr())
         
@@ -750,10 +759,12 @@ for ( i in 1:dim(contrasts)[2]) {
 
     } else {
         
-        writeLines(none_detected_message, file(curr_sig_hyper_tiles_tab_with_features_and_annots_path))
+        curr_file <- file(curr_sig_hyper_tiles_tab_with_features_and_annots_path)
+        writeLines(none_detected_message, curr_file)
+        close(curr_file)
 
         std_err_message <- paste0("\n  NOTICE\n  There were no significantly differentially hypermethylated tiles identified in the \n  '", 
-                                  curr_output_prefix, "' contrast.\n")
+                                  curr_output_prefix, "' contrast.\n  You will see an 'In max(i)...' warning about this.\n")
         
         write(std_err_message, stderr())
         
@@ -771,10 +782,12 @@ for ( i in 1:dim(contrasts)[2]) {
         
     } else {
         
-        writeLines(none_detected_message, file(curr_sig_hypo_tiles_tab_with_features_and_annots_path))
+        curr_file <- file(curr_sig_hypo_tiles_tab_with_features_and_annots_path)
+        writeLines(none_detected_message, curr_file)
+        close(curr_file)
         
         std_err_message <- paste0("\n  NOTICE\n  There were no significantly differentially hypomethylated tiles identified in the \n  '", 
-                                  curr_output_prefix, "' contrast.\n")
+                                  curr_output_prefix, "' contrast.\n  You will see an 'In max(i)...' warning about this.\n")
         
         write(std_err_message, stderr())
         
@@ -795,7 +808,7 @@ for ( i in 1:dim(contrasts)[2]) {
 
     } else {
         
-        std_err_message <- paste0("\n  There were no significantly differentially methylated sites identified in the \n  '", 
+        std_err_message <- paste0("\n  NOTICE\n  There were no significantly differentially methylated sites identified in the \n  '", 
                                   curr_output_prefix, "' contrast, so this pdf overview figure is not being produced:\n\n    ", 
                                   curr_sig_diff_bases_across_features_plot_path, "\n")
         
@@ -815,7 +828,7 @@ for ( i in 1:dim(contrasts)[2]) {
         
     } else {
         
-        std_err_message <- paste0("\n  There were no significantly differentially methylated tiles identified in the \n  '", 
+        std_err_message <- paste0("\n  NOTICE\n  There were no significantly differentially methylated tiles identified in the \n  '", 
                                   curr_output_prefix, "' contrast, so this pdf overview figure is not being produced:\n\n    ", 
                                   curr_sig_diff_bases_across_features_plot_path, "\n")
         
