@@ -92,9 +92,9 @@ if ( args$test ) {
     args$methylkit_output_dir <- "test-MethylKit_Outputs"
     args$ref_genome_string <- "Mmus_GRCm39"
     args$ref_annotations_tab_link <- "https://figshare.com/ndownloader/files/36597114"
-    # args$methRead_mincov <- 2
-    # args$getMethylDiff_difference <- 1
-    # args$getMethylDiff_qvalue <- 0.5
+    args$methRead_mincov <- 2
+    args$getMethylDiff_difference <- 1
+    args$getMethylDiff_qvalue <- 0.5
     args$primary_keytype <- "ENSEMBL"
 
 }
