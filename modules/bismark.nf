@@ -15,16 +15,16 @@ process GEN_BISMARK_REF {
     script:
 
         """
-        mkdir -p ${params.bismark_index_dir}
+        mkdir -p ${ params.bismark_index_dir }
 
         # copying ref fasta in there so everything exists with the bismark index dir (required by bismark)
-        cp ${input_ref_fasta} ${params.bismark_index_dir}
+        cp ${ input_ref_fasta } ${ params.bismark_index_dir }
 
         # making index
-        bismark_genome_preparation --bowtie2 --parallel ${params.bismark_index_creation_threads} ${params.bismark_index_dir} > bismark-genome-preparation-output.txt 2>&1
+        bismark_genome_preparation --bowtie2 --parallel ${ params.bismark_index_creation_threads } ${ params.bismark_index_dir } > bismark-genome-preparation-output.txt 2>&1
 
         # moving log file into bismark dir since i can't figure out how to do it with publishDirs above
-        mv bismark-genome-preparation-output.txt ${params.bismark_index_dir}
+        mv bismark-genome-preparation-output.txt ${ params.bismark_index_dir }
         """        
 
 }
@@ -34,15 +34,14 @@ process ALIGN {
 
     tag "On: $meta.id"
 
-    // only keeping sorted bams, so blocking this publishDir out for now
-    // publishDir params.bismark_alignments_dir, mode: 'link', pattern: "${ meta.id }_trimmed_bismark_*.bam"
+    publishDir params.bismark_alignments_dir, mode: 'link', pattern: "${ meta.id }*_sorted.bam"
 
     input:
         tuple val(meta), path(reads), path( bismark_index_dir )
 
     output:
-        tuple val(meta), path("${ meta.id }_trimmed_bismark_*.bam"), emit: bams
-        tuple val(meta), path("${ meta.id }_trimmed_bismark_*_report.txt"), emit: reports
+        tuple val(meta), path("${ meta.id }_bismark_*_sorted.bam"), emit: bams
+        tuple val(meta), path("${ meta.id }_bismark_*_report.txt"), emit: reports
 
     script:
 
@@ -50,7 +49,16 @@ process ALIGN {
         fastq_files = params.single_end ? reads : "-1 ${reads[0]} -2 ${reads[1]}"
 
         """
-        bismark --bam --non_bs_mm -p ${params.bismark_align_threads} --genome ${bismark_index_dir} ${non_directional} ${fastq_files} 
+        bismark --bam --non_bs_mm -p ${ params.bismark_align_threads } --genome_folder ${ bismark_index_dir } ${ non_directional } ${ fastq_files } 
+
+        sorted_bam_name=\$(ls *.bam | sed 's/_trimmed//' | sed 's/.bam/_sorted.bam/')
+
+        # sorting bam file
+        samtools sort -@ ${ params.general_threads } -o \${sorted_bam_name} *.bam
+
+        # renaming report files so it is cleaner and match up with autodetection of sorted bam files by bismark2summary later
+        new_report_name=\$(ls *_report.txt | sed 's/_trimmed//' | sed 's/_\\(.E\\)/_sorted_\\1/')
+        mv *_report.txt \${new_report_name}
         """
 
 }
@@ -60,19 +68,19 @@ process DEDUPLICATE {
 
     tag "On: $meta.id"
 
-    publishDir params.bismark_alignments_dir, mode: 'link', pattern: "${ meta.id }_trimmed_bismark_*.bam"
+    publishDir params.bismark_alignments_dir, mode: 'link', pattern: "${ meta.id }_bismark_*.bam"
 
     input:
         tuple val(meta), path(bam_file)
 
     output:
-        tuple val(meta), path("${ meta.id }_trimmed_bismark_*.bam"), emit: bams
+        tuple val(meta), path("${ meta.id }_bismark_*.bam"), emit: bams
         tuple val(meta), path("${ meta.id }*_report.txt"), emit: reports
 
     script:
 
         """
-        deduplicate_bismark ${bam_file}
+        deduplicate_bismark ${ bam_file }
         """
 
 }
@@ -87,6 +95,8 @@ process EXTRACT_METHYLATION_CALLS {
 
     input:
         tuple val(meta), path(bam_file)
+        path(bismark_index_dir)
+
 
     output:
         tuple val(meta), path("${ meta.id }*.cov.gz"), emit: covs
@@ -100,7 +110,7 @@ process EXTRACT_METHYLATION_CALLS {
         additional_args = params.single_end ? "" : "--ignore_r2 2 --ignore_3prime_r2 2"
 
         """
-        bismark_methylation_extractor --bedGraph --gzip --comprehensive ${additional_args} ${bam_file}
+        bismark_methylation_extractor --bedGraph --gzip --comprehensive --cytosine_report --genome_folder ${ bismark_index_dir } ${ additional_args } ${ bam_file }
         """
 
 }
@@ -120,10 +130,10 @@ process GEN_BISMARK_SAMPLE_REPORT {
 
     script:
 
-        additional_args = params.rrbs ? "" : "--dedup_report ${dedupe_report}"
+        additional_args = params.rrbs ? "" : "--dedup_report ${ dedupe_report }"
 
         """
-        bismark2report --alignment_report ${alignment_report} --splitting_report ${meth_calls_report} --mbias_report ${m_bias_report} ${additional_args}
+        bismark2report --alignment_report ${ alignment_report } --splitting_report ${ meth_calls_report } --mbias_report ${ m_bias_report } ${ additional_args }
         """
 
 }
@@ -142,7 +152,7 @@ process GEN_BISMARK_SUMMARY {
     script:
 
         """
-        bismark2summary
+        bismark2summary *.bam
         """
 
 }

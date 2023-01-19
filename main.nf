@@ -129,7 +129,7 @@ include { FASTQC as RAW_FASTQC } from './modules/QC.nf' addParams( file_suffix: 
 include { FASTQC as TRIMMED_FASTQC } from './modules/QC.nf' addParams( file_suffix: "_trimmed" )
 include { MULTIQC as RAW_MULTIQC } from './modules/QC.nf' addParams( MQCLabel: "raw" )
 include { MULTIQC as TRIMMED_MULTIQC } from './modules/QC.nf' addParams( MQCLabel: "trimmed" )
-include { MULTIQC as PROJECT_MULTIQC } from './modules/QC.nf' addParams( MQCLabel: "project" )
+// include { MULTIQC as PROJECT_MULTIQC } from './modules/QC.nf' addParams( MQCLabel: "project" )
 include { TRIMGALORE ; ALIGNMENT_QC } from './modules/QC.nf'
 include { PARSE_ANNOTATIONS_TABLE } from './modules/genelab.nf'
 include { DOWNLOAD_GUNZIP_REFERENCES ; GTF_TO_PRED ; 
@@ -242,6 +242,9 @@ workflow {
                                      newLine: true, 
                                      storeDir: params.bismark_alignments_dir )
 
+    // Alignment QC
+    ALIGNMENT_QC( ALIGN.out.bams, DOWNLOAD_GUNZIP_REFERENCES.out.gtf )
+
     // deduplicating only if *not* RRBS    
     if ( ! params.rrbs ) {
 
@@ -274,7 +277,7 @@ workflow {
     }
 
     // extracting methylation calls
-    EXTRACT_METHYLATION_CALLS( ch_bams_to_extract_from )
+    EXTRACT_METHYLATION_CALLS( ch_bams_to_extract_from, GEN_BISMARK_REF.out.ch_bismark_index_dir )
 
     // combinging methylation call reports
     EXTRACT_METHYLATION_CALLS.out.reports | map { it -> it[1] } | 
@@ -308,26 +311,27 @@ workflow {
     
     GEN_BISMARK_SUMMARY( ch_bams_and_all_reports )
 
-    // Alignment QC
-    ALIGNMENT_QC( ch_bams_to_extract_from )
+    // // Alignment QC
+    // ALIGNMENT_QC( ch_bams_to_extract_from )
 
+    // DROPPING THIS FOR NOW
     // generate multiqc project report
         // creating input channel holding all needed inputs for the project-level multiqc
 
         // passing the projectDir variable as a channel to grab everything
-    full_project_dir_ch = Channel.fromPath( projectDir )
+    // full_project_dir_ch = Channel.fromPath( projectDir )
 
         // adding additional needed channels
-    full_project_dir_ch | mix( ALIGN.out.reports |  map { it -> it[1] }, 
-                               EXTRACT_METHYLATION_CALLS.out.reports | map { it -> it[1] },
-                               ch_raw_mqc_inputs,
-                               ch_trimmed_mqc_inputs,
-                               ALIGNMENT_QC.out.qualimaps
-                             ) | 
-                          collect | set{ project_multiqc_in_ch }
+    // full_project_dir_ch | mix( ALIGN.out.reports |  map { it -> it[1] }, 
+    //                            EXTRACT_METHYLATION_CALLS.out.reports | map { it -> it[1] },
+    //                            ch_raw_mqc_inputs,
+    //                            ch_trimmed_mqc_inputs,
+    //                            ALIGNMENT_QC.out.qualimaps
+    //                          ) | 
+    //                       collect | set{ project_multiqc_in_ch }
 
 
-    PROJECT_MULTIQC( project_multiqc_in_ch )
+    // PROJECT_MULTIQC( project_multiqc_in_ch )
 
     // converting GTF to BED
     GTF_TO_PRED( DOWNLOAD_GUNZIP_REFERENCES.out.gtf )
