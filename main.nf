@@ -129,7 +129,6 @@ include { FASTQC as RAW_FASTQC } from './modules/QC.nf' addParams( file_suffix: 
 include { FASTQC as TRIMMED_FASTQC } from './modules/QC.nf' addParams( file_suffix: "_trimmed" )
 include { MULTIQC as RAW_MULTIQC } from './modules/QC.nf' addParams( MQCLabel: "raw" )
 include { MULTIQC as TRIMMED_MULTIQC } from './modules/QC.nf' addParams( MQCLabel: "trimmed" )
-// include { MULTIQC as PROJECT_MULTIQC } from './modules/QC.nf' addParams( MQCLabel: "project" )
 include { TRIMGALORE ; ALIGNMENT_QC } from './modules/QC.nf'
 include { PARSE_ANNOTATIONS_TABLE } from './modules/genelab.nf'
 include { DOWNLOAD_GUNZIP_REFERENCES ; GTF_TO_PRED ; 
@@ -250,7 +249,7 @@ workflow {
 
         DEDUPLICATE( ALIGN.out.bams )
 
-        // setting deduped bams to 'ch_bams'
+        // setting deduped bams to 'ch_bams_to_extract_from'
         DEDUPLICATE.out.bams | set { ch_bams_to_extract_from }
 
         // setting channel holding initial bams
@@ -267,11 +266,14 @@ workflow {
     
 
     } else {
-
+        
         // setting channel holding initial bams
         ALIGN.out.bams | set { ch_bams_to_extract_from }
 
-        // creating empty channel for dedupe reports and deduped bams
+        // setting channel holding bams to extract from (same as ch_bams_to_extract_from when no dedupe was done)
+        ALIGN.out.bams | set { ch_initial_bams }
+
+        // creating empty channel for dedupe reports (so we can pass things the same way to bismark2summary later)
         ALIGN.out.bams | map { it -> [ it[0], '' ] } | set { ch_dedupe_reports }
 
     }
@@ -293,45 +295,11 @@ workflow {
     // generating individual sample bismark reports
     GEN_BISMARK_SAMPLE_REPORT( ch_all_sample_reports )
 
-    // making channel holding all input files for bismark2summary (bam files, align reports, splitting reports, dedupe reports)
-    ch_bams_and_all_reports = ch_bams_to_extract_from | join( ch_all_sample_reports ) | map { it -> it[ 1..it.size() - 1 ] } | collect
+    // making channel holding all input files for bismark2summary (bam files, align reports, splitting reports, dedupe reports if they exist)
+    ch_bams_and_all_reports = ch_initial_bams | join( ch_all_sample_reports ) | map { it -> it[ 1..it.size() - 1 ] } | collect
 
-    // making overall bismark summary 
-        // problem with this for now, see issue i posted here: https://github.com/FelixKrueger/Bismark/issues/520
-            // ahh, bismark2summary needs the original bams to start with even when deduplicated (makes sense), passing them too now
-    // so if rrbs, then adding initial bams to ch_bams_and_all_reports
-    if ( ! params.rrbs ) {
-
-        // in here, the map{} is to drop the meta tags so that the mix works properly (i think needed?)
-        ch_initial_bams = ch_initial_bams | map { it -> it[1] } | collect
-
-        ch_bams_and_all_reports = ch_bams_and_all_reports | mix ( ch_initial_bams ) | collect
-
-    } 
-    
+    // making overall bismark summary     
     GEN_BISMARK_SUMMARY( ch_bams_and_all_reports )
-
-    // // Alignment QC
-    // ALIGNMENT_QC( ch_bams_to_extract_from )
-
-    // DROPPING THIS FOR NOW
-    // generate multiqc project report
-        // creating input channel holding all needed inputs for the project-level multiqc
-
-        // passing the projectDir variable as a channel to grab everything
-    // full_project_dir_ch = Channel.fromPath( projectDir )
-
-        // adding additional needed channels
-    // full_project_dir_ch | mix( ALIGN.out.reports |  map { it -> it[1] }, 
-    //                            EXTRACT_METHYLATION_CALLS.out.reports | map { it -> it[1] },
-    //                            ch_raw_mqc_inputs,
-    //                            ch_trimmed_mqc_inputs,
-    //                            ALIGNMENT_QC.out.qualimaps
-    //                          ) | 
-    //                       collect | set{ project_multiqc_in_ch }
-
-
-    // PROJECT_MULTIQC( project_multiqc_in_ch )
 
     // converting GTF to BED
     GTF_TO_PRED( DOWNLOAD_GUNZIP_REFERENCES.out.gtf )
