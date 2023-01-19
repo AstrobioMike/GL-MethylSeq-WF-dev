@@ -438,30 +438,6 @@ for ( i in 1:dim(contrasts)[2]) {
     if ( dim(curr_myDiff.hyper)[1] > 0 ) any_sig_hyper <- TRUE else any_sig_hyper <- FALSE
     if ( dim(curr_myDiff.hypo)[1] > 0 ) any_sig_hypo <- TRUE else any_sig_hypo <- FALSE
     
-
-    # getting df of all sig methylated bases (if any)
-    if ( any_sig ) {
-        
-        curr_sig_bases_all_tab <- getData(curr_myDiff.all_sig) %>% arrange(qvalue)
-        
-    }
-    
-    # getting df of just sig hyper-methylated bases (if any)
-    if ( any_sig_hyper ) { 
-    
-        curr_sig_bases_hyper_tab <- getData(curr_myDiff.hyper) %>% arrange(qvalue)
-    
-    }
-    
-
-    # getting df of just sig hypo-methylated bases (if any)    
-    if ( any_sig_hypo ) { 
-
-        curr_sig_bases_hypo_tab <- getData(curr_myDiff.hypo) %>% arrange(qvalue)
-        
-    }
-    
-    
     ### Tile analysis ###
     # tiling
     curr_tiles_obj <- tileMethylCounts(curr_obj, win.size = 1000, step.size = 1000, cov.bases = 10)
@@ -488,29 +464,6 @@ for ( i in 1:dim(contrasts)[2]) {
     if ( dim(curr_tiles_myDiff.all_sig)[1] > 0 ) any_sig_tiles <- TRUE else any_sig_tiles <- FALSE
     if ( dim(curr_tiles_myDiff.hyper)[1] > 0 ) any_sig_tiles_hyper <- TRUE else any_sig_tiles_hyper <- FALSE
     if ( dim(curr_tiles_myDiff.hypo)[1] > 0 ) any_sig_tiles_hypo <- TRUE else any_sig_tiles_hypo <- FALSE
-    
-
-    if ( any_sig_tiles ) { 
-        
-        # making table of all sig differentially methylated tiles
-        curr_sig_tiles_all_tab <- getData(curr_tiles_myDiff.all_sig) %>% arrange(qvalue)
-        
-    }
-    
-    if ( any_sig_tiles_hyper ) { 
-
-        # getting table of sig hyper-methylated tiles
-        curr_tiles_sig_hyper_tab <- getData(curr_tiles_myDiff.hyper) %>% arrange(qvalue)
-    
-    }
-
-    if ( any_sig_tiles_hypo ) { 
-        
-        # getting table of sig hypo-methylated tiles
-        curr_tiles_sig_hypo_tab <- getData(curr_tiles_myDiff.hypo) %>% arrange(qvalue)
-    
-    }
-    
     
     ### Adding feature information ###
     
@@ -589,7 +542,7 @@ for ( i in 1:dim(contrasts)[2]) {
 
         curr_sig_all_bases_tab_with_features_and_annots <- 
             left_join(curr_sig_all_bases_tab_with_features_and_gene_IDs, 
-                      functional_annots_tab, by = c("gene_ID" = args$primary_keytype))
+                      functional_annots_tab, by = c("gene_ID" = args$primary_keytype)) %>% arrange(qvalue)
         
     }
     
@@ -600,7 +553,7 @@ for ( i in 1:dim(contrasts)[2]) {
 
         curr_sig_hyper_bases_tab_with_features_and_annots <- 
             left_join(curr_sig_hyper_bases_tab_with_features_and_gene_IDs, 
-                      functional_annots_tab, by = c("gene_ID" = args$primary_keytype))
+                      functional_annots_tab, by = c("gene_ID" = args$primary_keytype)) %>% arrange(qvalue)
         
     }
 
@@ -611,7 +564,7 @@ for ( i in 1:dim(contrasts)[2]) {
 
         curr_sig_hypo_bases_tab_with_features_and_annots <- 
             left_join(curr_sig_hypo_bases_tab_with_features_and_gene_IDs, 
-                      functional_annots_tab, by = c("gene_ID" = args$primary_keytype))
+                      functional_annots_tab, by = c("gene_ID" = args$primary_keytype)) %>% arrange(qvalue)
         
     }
 
@@ -697,7 +650,7 @@ for ( i in 1:dim(contrasts)[2]) {
         
         curr_sig_all_tiles_tab_with_features_and_annots <- 
             left_join(curr_sig_all_tiles_tab_with_features_and_gene_IDs, 
-                      functional_annots_tab, by = c("gene_ID" = "ENSEMBL"))
+                      functional_annots_tab, by = c("gene_ID" = args$primary_keytype)) %>% arrange(qvalue)
 
     }
 
@@ -708,7 +661,7 @@ for ( i in 1:dim(contrasts)[2]) {
 
         curr_sig_hyper_tiles_tab_with_features_and_annots <- 
             left_join(curr_sig_hyper_tiles_tab_with_features_and_gene_IDs, 
-                      functional_annots_tab, by = c("gene_ID" = "ENSEMBL"))
+                      functional_annots_tab, by = c("gene_ID" = args$primary_keytype)) %>% arrange(qvalue)
         
     }    
     
@@ -719,7 +672,7 @@ for ( i in 1:dim(contrasts)[2]) {
         
         curr_sig_hypo_tiles_tab_with_features_and_annots <- 
             left_join(curr_sig_hypo_tiles_tab_with_features_and_gene_IDs, 
-                      functional_annots_tab, by = c("gene_ID" = "ENSEMBL"))
+                      functional_annots_tab, by = c("gene_ID" = args$primary_keytype)) %>% arrange(qvalue)
         
     }
     
@@ -854,7 +807,7 @@ obj <- methRead(location = as.list(sample_meth_info_df %>% pull(coverage_file_pa
 meth <- unite(obj)
 
 perc.meth <- percMethylation(meth, rowids = TRUE)
-perc.meth <- perc.meth %>% data.frame() %>% rownames_to_column("location")
+perc.meth <- perc.meth %>% data.frame(check.names = FALSE) %>% rownames_to_column("location")
 
 # writing out
 perc.meth_path <- file.path(args$methylkit_output_dir, "base-level-percent-methylated.tsv")
@@ -865,7 +818,7 @@ tiles_obj <- tileMethylCounts(obj, win.size = 1000, step.size = 1000, cov.bases 
 tiles_meth <- unite(tiles_obj)
 
 tiles_perc.meth <- percMethylation(tiles_meth, rowids = TRUE)
-tiles_perc.meth <- tiles_perc.meth %>% data.frame() %>% rownames_to_column("location")
+tiles_perc.meth <- tiles_perc.meth %>% data.frame(check.names = FALSE) %>% rownames_to_column("location")
 
 tiles_perc.meth_path <- file.path(args$methylkit_output_dir, "tile-level-percent-methylated.tsv")
 write.table(tiles_perc.meth, tiles_perc.meth_path, sep = "\t", quote = FALSE, row.names = FALSE)
