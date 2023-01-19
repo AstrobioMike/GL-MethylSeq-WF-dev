@@ -45,6 +45,16 @@ if (params.help) {
 /* --            PRE-FLIGHT CHECKS             -- */
 ////////////////////////////////////////////////////
 
+if ( params.lib_type == 3 ) {
+
+    println "\n    ${RED}Not prepared for lib_type 3 yet, as the NuGEN-specific script has yet to be integrated.${NC}"
+
+    println "\n  Exiting for now.\n"
+    exit 1
+
+}
+
+
 /* **** checking a glds accession or runsheet was specified **** */
 if ( ! params.gldsAccession ) {
 
@@ -197,6 +207,9 @@ workflow {
                              collectFile( name: "trimgalore-reports.txt", 
                                           newLine: true, 
                                           storeDir: params.filtered_reads_dir )
+
+    // ##### NEED to integrate NuGEN-specific script if NuGEN ovation kit was used (lib_type 3)
+    // ##### There is a block at the top of this script for now
 
     // // fastqc on trimmed reads
     TRIMMED_FASTQC( TRIMGALORE.out.reads )
