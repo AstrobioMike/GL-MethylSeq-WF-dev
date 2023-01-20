@@ -17,6 +17,9 @@ parser <- add_option(parser, c("--bismark_methylation_calls_dir"),
 
 parser <- add_option(parser, c("--path_to_runsheet"), help = "Path to the runsheet")
 
+parser <- add_option(parser, c("--simple_org_name"), 
+                     help = "Simple organism name (must match 1st column of *annotations.csv ref table)")
+
 parser <- add_option(parser, c("--ref_dir"),
                      default = "Reference_Genome_Files",
                      help = "Directory holding reference genome files (e.g. *.bed and *.gtf files)")
@@ -29,8 +32,8 @@ parser <- add_option(parser, c("--limit_samples_to"),
                      default = "all",
                      help = "Limits the number of samples being processed (won't do real factor comparisons if set)")
 
-parser <- add_option(parser, c("--ref_genome_string"),
-                     help = "Reference genome used (just for recording, not used here)")
+parser <- add_option(parser, c("--ref_org_table_link"),
+                     help = "GeneLab reference annotations.csv file")
 
 parser <- add_option(parser, c("--ref_annotations_tab_link"),
                      help = "Link to reference-genome annotations table")
@@ -56,6 +59,13 @@ parser <- add_option(parser, c("--test"),
                      help = "Provide solely this flag to run with a small test dataset that will be downloaded")
 
 args <- parse_args(parser)
+
+############### TEMP TESTING PURPOSES #################
+args$simple_org_name <- "MOUSE"
+args$path_to_runsheet <- "test-data/test-runsheet.csv"
+args$ref_org_table_link <- "https://raw.githubusercontent.com/nasa/GeneLab_Data_Processing/master/GeneLab_Reference_Annotations/Pipeline_GL-DPPD-7110_Versions/GL-DPPD-7110/GL-DPPD-7110_annotations.csv"
+args$ref_annotations_tab_link <- "https://figshare.com/ndownloader/files/36597114"
+args$primary_keytype <- "ENSEMBL"
 
 ############################################
 ########### for testing purposes ###########
@@ -86,11 +96,12 @@ if ( args$test ) {
     file.remove(test_meth_data_tarball, test_ref_data_tarball)
 
     args$v <- TRUE
+    args$simple_org_name <- "MOUSE"
     args$bismark_methylation_calls_dir <- "test-meth-calls"
     args$path_to_runsheet <- "test-meth-calls/test-runsheet.csv"
     args$ref_dir <- "test-ref-files"
     args$methylkit_output_dir <- "test-MethylKit_Outputs"
-    args$ref_genome_string <- "Mmus_GRCm39"
+    args$ref_org_table_link <- "https://raw.githubusercontent.com/nasa/GeneLab_Data_Processing/master/GeneLab_Reference_Annotations/Pipeline_GL-DPPD-7110_Versions/GL-DPPD-7110/GL-DPPD-7110_annotations.csv"
     args$ref_annotations_tab_link <- "https://figshare.com/ndownloader/files/36597114"
     args$methRead_mincov <- 2
     args$getMethylDiff_difference <- 1
@@ -110,7 +121,7 @@ if ( args$v ) { cat("\n  NOTICE\n  Verbose logging has been specified.\n\n") }
 
 # checking required arguments were set
 required_args <- c("path_to_runsheet" = "--path_to_runsheet",
-                   "ref_genome_string" = "--ref_genome_string",
+                   "ref_org_table_link" = "--ref_org_table_link",
                    "ref_annotations_tab_link" = "--ref_annotations_tab_link",
                    "primary_keytype" = "--primary_keytype")
 
@@ -187,7 +198,7 @@ order_input_files <- function(sample_names, paths) {
     
     for ( sample in sample_names ) {
         
-        search_pattern <- paste0(sample, "_trimmed")
+        search_pattern <- paste0(sample, "_bismark")
         hits <- paths[grep(search_pattern, paths)]
         
         # making sure there is exactly one match
@@ -316,18 +327,6 @@ contrasts <- combn(levels(factor(safe_group_names)), 2) # generate matrix of pai
 contrast.names <- combn(levels(factor(names(safe_group_names))), 2)
 
 
-####### NOTE TO MIKE DURING DEV #######
-# this is about output A vs B AND B vs A, as is currently done with RNAseq (both are done and output)
-    # unlike with deseq2, each contrast needs to be re-run to have the outputs the other way
-    # not all the output info can go in one table (by just adding columns), so we are doubling all files by reporting both
-# so i think ultimately we shouldn't do all contrasts both ways with methylseq data
-#######################################
-
-## this way would be if doing A vs B and B vs A
-# contrast.names <- c(paste(contrast.names[1,], contrast.names[2,], sep = "v"), 
-#                     paste(contrast.names[2,], contrast.names[1,], sep = "v"))
-# contrasts <- cbind(contrasts, contrasts[c(2,1),])
-
 ## this way is only doing one-way contrasts
 contrast.names <- paste(contrast.names[1,], contrast.names[2,], sep = "v")
 colnames(contrasts) <- contrast.names
@@ -355,6 +354,16 @@ options(timeout = 600)
 
 functional_annots_tab <- 
     read.table(args$ref_annotations_tab_link, sep = "\t", quote = "", header = TRUE)
+
+# reading in reference annotations.csv table
+ref_table <- read.csv(args$ref_org_table_link)
+
+# at this point just to get a string for the 'assembly' argument of methRead() function
+# setting variable with organism and ensembl version number
+ensembl_version <- ref_table %>% 
+    filter(name == args$simple_org_name) %>% pull(ensemblVersion)
+
+org_and_ensembl_version <- paste(args$simple_org_name, ensembl_version, sep = "_")
 
 ############################################
 
@@ -408,7 +417,7 @@ for ( i in 1:dim(contrasts)[2]) {
                          sample.id = as.list(curr_samples_vec),
                          treatment = curr_treatment_vec,
                          pipeline = "bismarkCoverage",
-                         assembly = args$ref_genome_string,
+                         assembly = org_and_ensembl_version,
                          header = FALSE,
                          mincov = args$methRead_mincov)
     

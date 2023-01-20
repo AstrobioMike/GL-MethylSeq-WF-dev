@@ -136,6 +136,7 @@ include { DOWNLOAD_GUNZIP_REFERENCES ; GTF_TO_PRED ;
 include { GEN_BISMARK_REF ; ALIGN ; DEDUPLICATE ; 
           EXTRACT_METHYLATION_CALLS ; GEN_BISMARK_SAMPLE_REPORT ;
           GEN_BISMARK_SUMMARY } from './modules/bismark.nf'
+include { DIFFERENTIAL_METHYLATION_ANALYSIS } from './modules/methylkit.nf'
 
 
 ////////////////////////////////////////////////////
@@ -181,8 +182,13 @@ workflow {
     // storing general info to ch_meta
     STAGING.out.raw_reads | first | 
                             map { it -> it[0] } |
-                            view { meta -> "${YELLOW}  Autodetected Processing Metadata:\n\t pairedEND: ${meta.paired_end}\n\t organism: ${meta.organism_sci}${NC}" } |
+                            view { meta -> "${YELLOW}  Autodetected Processing Metadata:\n\t pairedEND: ${meta.paired_end}\n\t organism: ${meta.organism_sci}\n\t primary_keytype: ${meta.primary_keytype}${NC}" } |
                             set { ch_meta }
+
+    // // getting primary keytype into a channel for use later
+    // STAGING.out.raw_reads | first | 
+    //                         map { it -> it[3] } |
+    //                         set { ch_primary_keytype }
 
 
     // raw fastqc on input reads
@@ -312,8 +318,17 @@ workflow {
     // here is how to pass the link to R script: 
         // PARSE_ANNOTATIONS_TABLE.out.annotations_db_url
     // look at ch_meta for primary_keytype to try to find keytype to pass here
-    // figure out what we want to pass for the "assembly" slot in methylkit object,
-        // maybe something from ensemblVersion/Source in PARSE_ANNOTATIONS_TABLE.out also
 
+    // putting runsheet into channel
+    ch_runsheet = channel.fromPath( params.runsheet )
+
+    // need to make coverage files one of the inputs so it knows to wait to start this
+    ch_all_bismark_coverage_files = EXTRACT_METHYLATION_CALLS.out.covs | collect
+    DIFFERENTIAL_METHYLATION_ANALYSIS( ch_all_bismark_coverage_files,
+                                       PARSE_ANNOTATIONS_TABLE.out.simple_organism_name, 
+                                       ch_runsheet,
+                                       params.reference_table_url,
+                                       PARSE_ANNOTATIONS_TABLE.out.annotations_db_url,
+                                       ch_meta.primary_keytype )
 
 }

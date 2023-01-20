@@ -86,6 +86,7 @@ process PARSE_ANNOTATIONS_TABLE {
     tuple val(organism_sci), val(fasta_url), val(gtf_url), emit: reference_genome_urls
     val(annotations_db_url), emit: annotations_db_url
     tuple val(ensemblVersion), val(ensemblSource), emit: reference_version_and_source
+    val(simple_organism_name), emit: simple_organism_name
   
   exec:
     def organisms = [:]
@@ -102,6 +103,7 @@ process PARSE_ANNOTATIONS_TABLE {
     annotations_db_url = organisms[organism_key][9]
     ensemblVersion = organisms[organism_key][3]
     ensemblSource = organisms[organism_key][4]
+    simple_organism_name = organisms[organism_key][0]
 
     println "  ${YELLOW}PARSING_ANNOTATIONS_TABLE:"
     println "    Values parsed for '${organism_key}':"
