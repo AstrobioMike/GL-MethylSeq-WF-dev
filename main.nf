@@ -322,9 +322,20 @@ workflow {
     // putting runsheet into channel
     ch_runsheet = channel.fromPath( params.runsheet )
 
+    // putting script into channel so works when run from nextflow work dir
+    ch_methylkit_script = channel.fromPath( "bin/differential-methylation.R" )
+
+    // putting needed directories in a channel so things can be found when running in the nextflow work dir
+    ch_reference_dir = channel.fromPath( params.ref_genome_dir )
+    ch_bismark_coverages_dir = channel.fromPath( params.bismark_methylation_calls_dir )
+    // ch_methylkit_outputs_dir = channel.fromPath( params.methylkit_outputs_dir )
     // need to make coverage files one of the inputs so it knows to wait to start this
     ch_all_bismark_coverage_files = EXTRACT_METHYLATION_CALLS.out.covs | collect
-    DIFFERENTIAL_METHYLATION_ANALYSIS( ch_all_bismark_coverage_files,
+    DIFFERENTIAL_METHYLATION_ANALYSIS( ch_methylkit_script,
+                                    //    ch_methylkit_outputs_dir,
+                                       ch_bismark_coverages_dir,
+                                       ch_reference_dir,
+                                       ch_all_bismark_coverage_files,
                                        PARSE_ANNOTATIONS_TABLE.out.simple_organism_name, 
                                        ch_runsheet,
                                        params.reference_table_url,

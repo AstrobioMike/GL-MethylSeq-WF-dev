@@ -60,12 +60,6 @@ parser <- add_option(parser, c("--test"),
 
 args <- parse_args(parser)
 
-############### TEMP TESTING PURPOSES #################
-args$simple_org_name <- "MOUSE"
-args$path_to_runsheet <- "test-data/test-runsheet.csv"
-args$ref_org_table_link <- "https://raw.githubusercontent.com/nasa/GeneLab_Data_Processing/master/GeneLab_Reference_Annotations/Pipeline_GL-DPPD-7110_Versions/GL-DPPD-7110/GL-DPPD-7110_annotations.csv"
-args$ref_annotations_tab_link <- "https://figshare.com/ndownloader/files/36597114"
-args$primary_keytype <- "ENSEMBL"
 
 ############################################
 ########### for testing purposes ###########
@@ -291,7 +285,7 @@ bismark_cov_paths <- list.files(args$bismark_methylation_calls_dir, pattern = ".
 # making sure files list matches length of runsheet
 if ( dim(runsheet)[1] != length(bismark_cov_paths) ) {
 
-    error_message <- paste0("\n  The number of '*.bismark.cov.gz' files found in the", 
+    error_message <- paste0("\n  The number of '*.bismark.cov.gz' files found in the ", 
                          args$bismark_methylation_calls_dir, 
                          " directory\n  does not match the number of samples specified in the runsheet.\nCannot proceed.\n\n")
     
@@ -792,7 +786,7 @@ for ( i in 1:dim(contrasts)[2]) {
         
         std_err_message <- paste0("\n  NOTICE\n  There were no significantly differentially methylated tiles identified in the \n  '", 
                                   curr_output_prefix, "' contrast, so this pdf overview figure is not being produced:\n\n    ", 
-                                  curr_sig_diff_bases_across_features_plot_path, "\n")
+                                  curr_sig_diff_tiles_across_features_plot_path, "\n")
         
         write(std_err_message, stderr())
         
@@ -809,7 +803,7 @@ obj <- methRead(location = as.list(sample_meth_info_df %>% pull(coverage_file_pa
                 sample.id = as.list(sample_meth_info_df %>% pull(sample_id)),
                 treatment = mock_treatment_vec,
                 pipeline = "bismarkCoverage",
-                assembly = args$ref_genome_string,
+                assembly = org_and_ensembl_version,
                 header = FALSE,
                 mincov = args$methRead_mincov)
 
