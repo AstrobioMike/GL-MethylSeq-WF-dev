@@ -45,16 +45,6 @@ if (params.help) {
 /* --            PRE-FLIGHT CHECKS             -- */
 ////////////////////////////////////////////////////
 
-if ( params.lib_type == 3 ) {
-
-    println "\n    ${RED}Not prepared for lib_type 3 yet, as the NuGEN-specific script has yet to be integrated.${NC}"
-
-    println "\n  Exiting for now.\n"
-    exit 1
-
-}
-
-
 /* **** checking a glds accession or runsheet was specified **** */
 if ( ! params.gldsAccession ) {
 
@@ -71,10 +61,7 @@ if ( ! params.gldsAccession ) {
 }
 
 /* **** making sure if non_directional is set, so is rrbs **** */
-// with TRIMGALORE, non_directional can only be specified if it's rrbs
-// https://github.com/FelixKrueger/TrimGalore/blob/e4fb81ff4adf052cd22e859f0f36aaee7ce63489/trim_galore#L2637
-// https://github.com/FelixKrueger/TrimGalore/blob/master/Docs/Trim_Galore_User_Guide.md#non-directional-mode
-// see last 2 slides here: https://github.com/FelixKrueger/TrimGalore/blob/master/Docs/RRBS_Guide.pdf
+// with TRIMGALORE, non_directional can only be specified if it's rrbs (see links in error message below)
 // so, making sure that is the case here (might have to adjust if we auto-set the non_directional flag)
 if ( params.non_directional == true ) {
 
@@ -91,7 +78,6 @@ if ( params.non_directional == true ) {
 
     }
 }
-
 
 /* **** checking lib_type set in nextflow.config **** */
 if ( params.lib_type !in params.accepted_lib_types ) {
@@ -129,7 +115,7 @@ include { FASTQC as RAW_FASTQC } from './modules/QC.nf' addParams( file_suffix: 
 include { FASTQC as TRIMMED_FASTQC } from './modules/QC.nf' addParams( file_suffix: "_trimmed" )
 include { MULTIQC as RAW_MULTIQC } from './modules/QC.nf' addParams( MQCLabel: "raw" )
 include { MULTIQC as TRIMMED_MULTIQC } from './modules/QC.nf' addParams( MQCLabel: "trimmed" )
-include { TRIMGALORE ; ALIGNMENT_QC } from './modules/QC.nf'
+include { TRIMGALORE ; NUGEN_TRIM ; ALIGNMENT_QC } from './modules/QC.nf'
 include { PARSE_ANNOTATIONS_TABLE } from './modules/genelab.nf'
 include { DOWNLOAD_GUNZIP_REFERENCES ; GTF_TO_PRED ; 
           PRED_TO_BED ; MAKE_GENE_TRANSCRIPT_MAP } from './modules/utilities.nf'
@@ -144,7 +130,6 @@ include { DIFFERENTIAL_METHYLATION_ANALYSIS } from './modules/methylkit.nf'
 ////////////////////////////////////////////////////
 
 include { staging as STAGING } from './staging.nf'
-// include { references as REFERENCES } from './references.nf'
 
 
 ////////////////////////////////////////////////////
@@ -153,8 +138,7 @@ include { staging as STAGING } from './staging.nf'
 
 workflow {
 
-    /* **** staging (and downloading if needed) input reads and metadata **** */
-
+    //staging (and downloading if needed) input reads and metadata
     if ( params.gldsAccession ) { 
 
         // setting glds_acc channel
@@ -169,11 +153,6 @@ workflow {
         ch_glds_accession = null
         STAGING( ch_glds_accession, params.stageLocal )
 
-        // println "\n    ${RED}We're not ready to take a user-provided run sheet yet :(${NC}"
-        // println "\n  Exiting for now.\n"
-
-        // exit 1
-
     }
 
     // setting raw reads to channel
@@ -184,12 +163,6 @@ workflow {
                             map { it -> it[0] } |
                             view { meta -> "${YELLOW}  Autodetected Processing Metadata:\n\t pairedEND: ${meta.paired_end}\n\t organism: ${meta.organism_sci}\n\t primary_keytype: ${meta.primary_keytype}${NC}" } |
                             set { ch_meta }
-
-    // // getting primary keytype into a channel for use later
-    // STAGING.out.raw_reads | first | 
-    //                         map { it -> it[3] } |
-    //                         set { ch_primary_keytype }
-
 
     // raw fastqc on input reads
     RAW_FASTQC( ch_input_reads )
@@ -207,17 +180,32 @@ workflow {
     // quality trimming/filtering input reads
     TRIMGALORE( ch_input_reads )
 
-    // combinging trimming logs
+    // combinging trimgalore logs
     TRIMGALORE.out.reports | map { it -> it[1] } | 
                              collectFile( name: "trimgalore-reports.txt", 
                                           newLine: true, 
                                           storeDir: params.filtered_reads_dir )
 
-    // ##### NEED to integrate NuGEN-specific script if NuGEN ovation kit was used (lib_type 3)
-    // ##### There is a block at the top of this script for now
+    // running NuGEN-specific script if needed
+    if ( params.lib_type == 3 ) { 
 
-    // // fastqc on trimmed reads
-    TRIMMED_FASTQC( TRIMGALORE.out.reads )
+        ch_nugen_trim_script = channel.fromPath( "bin/trimRRBSdiversityAdaptCustomers.py" )
+
+        NUGEN_TRIM( ch_nugen_trim_script | combine( TRIMGALORE.out.reads ) )
+
+        // setting channel holding nugen-trimmed reads
+            // (collecting so it waits for all of them before starting TRIMMED_FASTQC on these)
+        ch_trimmed_reads = NUGEN_TRIM.out.reads
+
+    } else { 
+
+        // updating channel holding initial trimmed reads
+            // (so can use same ch variable whether nugen script run or not)
+        ch_trimmed_reads = TRIMGALORE.out.reads
+
+    }
+
+    TRIMMED_FASTQC( ch_trimmed_reads )
 
     // getting all trimmed fastqc output files into one channel
     TRIMMED_FASTQC.out.fastqc | map { it -> [ it[1], it[2] ] } |
@@ -239,7 +227,7 @@ workflow {
     GEN_BISMARK_REF( ch_input_ref )
 
     // aligning 
-    TRIMGALORE.out.reads | combine( GEN_BISMARK_REF.out.ch_bismark_index_dir ) | ALIGN
+    ch_trimmed_reads | combine( GEN_BISMARK_REF.out.ch_bismark_index_dir ) | ALIGN
 
     // combinging aligning reports
     ALIGN.out.reports | map { it -> it[1] } | 
@@ -314,11 +302,7 @@ workflow {
     // making a mapping file of genes to transcripts (needed to link to functional annotations in primary output table)
     MAKE_GENE_TRANSCRIPT_MAP( DOWNLOAD_GUNZIP_REFERENCES.out.gtf )
 
-    // on to R next... 
-    // here is how to pass the link to R script: 
-        // PARSE_ANNOTATIONS_TABLE.out.annotations_db_url
-    // look at ch_meta for primary_keytype to try to find keytype to pass here
-
+    // on to R and methylseq next
     // putting runsheet into channel
     ch_runsheet = channel.fromPath( params.runsheet )
 
@@ -332,10 +316,9 @@ workflow {
     // need to make coverage files one of the inputs so it knows to wait to start this
     ch_all_bismark_coverage_files = EXTRACT_METHYLATION_CALLS.out.covs | collect
     DIFFERENTIAL_METHYLATION_ANALYSIS( ch_methylkit_script,
-                                    //    ch_methylkit_outputs_dir,
+                                       ch_all_bismark_coverage_files,
                                        ch_bismark_coverages_dir,
                                        ch_reference_dir,
-                                       ch_all_bismark_coverage_files,
                                        PARSE_ANNOTATIONS_TABLE.out.simple_organism_name, 
                                        ch_runsheet,
                                        params.reference_table_url,

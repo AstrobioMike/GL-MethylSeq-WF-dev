@@ -28,9 +28,7 @@ process MULTIQC {
     publishDir params.multiqc_outputs_dir, mode: 'link'
 
     input:
-        // path("samples.txt")
         path("mqc_in/*") // any number of multiqc compatible files
-        // path(multiqc_config)
 
     output:
         path("${ params.MQCLabel }_multiqc.html"), emit: html
@@ -55,19 +53,20 @@ process TRIMGALORE {
 
     tag "On: $meta.id"
 
-    publishDir params.filtered_reads_dir, mode: 'link', pattern: "${ meta.id }_trimmed.*.gz"
+    publishDir params.filtered_reads_dir, mode: 'link', pattern: "${ meta.id }*_trimmed.*.gz"
 
     input:
         tuple val(meta), path(reads)
 
     output:
-        tuple val(meta), path("${ meta.id }_trimmed.*.gz"), emit: reads
+        tuple val(meta), path("${ meta.id }*trimmed.*.gz"), emit: reads
         tuple val(meta), path("${ meta.id }*trimming_report.txt"), emit: reports
 
     script:
 
         non_directional = params.non_directional ? '--non_directional' : ''
-        paired = params.single_end ? '' : '--paired'
+        paired = "${ meta.paired_end }" == 'false' ? '' : '--paired' 
+
         rrbs = params.rrbs ? '--rrbs' : ''
         
 
@@ -79,14 +78,14 @@ process TRIMGALORE {
             trim_galore --cores ${ params.general_threads } --gzip $reads ${ non_directional } ${ rrbs } ${ paired }
 
             # renaming to our convention
-            if [ ${ params.single_end } == 'true' ]; then
+            if [ ${ meta.paired_end } == 'false' ]; then
 
                 mv ${ meta.id }*_trimmed.fq.gz ${ meta.id }_trimmed.fastq.gz
 
             else
 
-                mv ${ meta.id }*R1_trimmed.fq.gz ${ meta.id }*R1_trimmed.fastq.gz
-                mv ${ meta.id }*R2_trimmed.fq.gz ${ meta.id }*R2_trimmed.fastq.gz
+                mv ${ meta.id }*R1_trimmed.fq.gz ${ meta.id }_R1_trimmed.fastq.gz
+                mv ${ meta.id }*R2_trimmed.fq.gz ${ meta.id }_R2_trimmed.fastq.gz
 
             fi
         
@@ -95,29 +94,28 @@ process TRIMGALORE {
             # trimming
             trim_galore --cores ${ params.general_threads } --gzip $reads ${ non_directional } ${ rrbs } ${ paired }
 
-
             # renaming to our convention
-            if [ ${ params.single_end } == 'true' ]; then
+            if [ ${ meta.paired_end } == 'false' ]; then
 
                 mv ${ meta.id }*_trimmed.fq.gz ${ meta.id }_trimmed.fastq.gz
 
             else
 
-                mv ${ meta.id }*R1_trimmed.fq.gz ${ meta.id }*R1_trimmed.fastq.gz
-                mv ${ meta.id }*R2_trimmed.fq.gz ${ meta.id }*R2_trimmed.fastq.gz
+                mv ${ meta.id }*R1_trimmed.fq.gz ${ meta.id }_R1_trimmed.fastq.gz
+                mv ${ meta.id }*R2_trimmed.fq.gz ${ meta.id }_R2_trimmed.fastq.gz
 
             fi
 
         elif [ ${ params.lib_type } == 3 ]; then
 
             # the trimming command depends on if paired or not (specifically the adapter arguments)
-            if [ ${ params.single_end } == 'true' ]; then
+            if [ ${ meta.paired_end } == 'false' ]; then
 
                 # trimming
                 trim_galore --cores ${ params.general_threads } -a AGATCGGAAGAGC --gzip $reads ${ non_directional } ${ rrbs } ${ paired }
 
                 # renaming to our convention
-                mv ${ meta.id }*_trimmed.fq.gz ${ meta.id }_trimmed.fastq.gz                
+                mv ${ meta.id }*_trimmed.fq.gz ${ meta.id }_pre-trimmed.fastq.gz                
 
             else
 
@@ -125,13 +123,50 @@ process TRIMGALORE {
                 trim_galore --cores ${ params.general_threads } -a AGATCGGAAGAGC -a2 AAATCAAAAAAAC --gzip $reads ${ non_directional } ${ rrbs } ${ paired }
 
                 # renaming to our convention
-                mv ${ meta.id }*R1_trimmed.fq.gz ${ meta.id }*R1_trimmed.fastq.gz
-                mv ${ meta.id }*R2_trimmed.fq.gz ${ meta.id }*R2_trimmed.fastq.gz
+                mv ${ meta.id }*R1_trimmed.fq.gz ${ meta.id }_R1_pre-trimmed.fastq.gz
+                mv ${ meta.id }*R2_trimmed.fq.gz ${ meta.id }_R2_pre-trimmed.fastq.gz
 
             fi
 
         fi
         """
+}
+
+
+process NUGEN_TRIM {
+
+    tag "On: $meta.id"
+
+    publishDir params.filtered_reads_dir, mode: 'link', pattern: "${ meta.id }*_trimmed.*.gz"
+
+    input:
+        tuple path(nugen_script), val(meta), path(reads)
+
+
+    output:
+        tuple val(meta), path("${ meta.id }_trimmed.*.gz"), emit: reads
+        tuple val(meta), path("${ meta.id }*trim-log.txt"), emit: logs
+
+    script:
+
+        fastq_files = "${ meta.paired_end }" == 'false' ? "-1 ${ reads }" : "-1 ${ reads[0] } -2 ${ reads[1] }"
+
+        """
+        python ${ nugen_script } ${ fastq_files } > ${ meta.id }-NuGEN-trim-log.txt 2>&1
+
+        # renaming output to our convention
+        if [ ${ meta.paired_end } == 'false' ]; then
+
+            mv ${ meta.id }_pre-trimmed*trimmed*.gz ${ meta.id }_trimmed.fastq.gz
+
+        else
+
+            mv ${ meta.id }*R1_pre-trimmed*trimmed*.gz ${ meta.id }_R1_trimmed.fastq.gz
+            mv ${ meta.id }*R2_pre-trimmed*trimmed*.gz ${ meta.id }_R2_trimmed.fastq.gz
+
+        fi
+        """
+
 }
 
 

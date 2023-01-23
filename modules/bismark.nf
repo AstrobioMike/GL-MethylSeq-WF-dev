@@ -46,7 +46,8 @@ process ALIGN {
     script:
 
         non_directional = params.non_directional ? '--non_directional' : ''
-        fastq_files = params.single_end ? reads : "-1 ${reads[0]} -2 ${reads[1]}"
+        fastq_files = "${ meta.paired_end }" == 'false' ? "${ reads }" : "-1 ${ reads[0] } -2 ${ reads[1] }" 
+
 
         """
         bismark --bam --non_bs_mm -p ${ params.bismark_align_threads } --genome_folder ${ bismark_index_dir } ${ non_directional } ${ fastq_files } 
@@ -107,7 +108,7 @@ process EXTRACT_METHYLATION_CALLS {
 
     script:
 
-        additional_args = params.single_end ? "" : "--ignore_r2 2 --ignore_3prime_r2 2"
+        additional_args = "${ meta.paired_end }" == 'false' ? "" : "--ignore_r2 2 --ignore_3prime_r2 2"
 
         """
         bismark_methylation_extractor --bedGraph --gzip --comprehensive --cytosine_report --genome_folder ${ bismark_index_dir } ${ additional_args } ${ bam_file }

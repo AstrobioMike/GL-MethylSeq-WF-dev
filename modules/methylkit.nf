@@ -4,16 +4,13 @@
 
 process DIFFERENTIAL_METHYLATION_ANALYSIS {
 
-    debug true 
-
     publishDir params.methylkit_outputs_dir, mode: 'link'
 
     input:
         path( methylkit_script )
-        // path( methylkit_outputs_dir )
+        file( coverage_files_trigger )
         path( bismark_covs_dir )
         path( ref_dir )
-        file( coverage_files )
         val( simple_organism_name )
         path( runsheet )
         val( ref_org_table_link )
