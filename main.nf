@@ -156,7 +156,7 @@ workflow {
     // storing general info to ch_meta
     STAGING.out.raw_reads | first | 
                             map { it -> it[0] } |
-                            view { meta -> "${YELLOW}  Autodetected Processing Metadata:\n\t pairedEND: ${meta.paired_end}\n\t organism: ${meta.organism_sci}\n\t primary_keytype: ${meta.primary_keytype}${NC}" } |
+                            // view { meta -> "${YELLOW}  Autodetected Processing Metadata:\n\t pairedEND: ${meta.paired_end}\n\t organism: ${meta.organism_sci}\n\t primary_keytype: ${meta.primary_keytype}${NC}" } |
                             set { ch_meta }
 
     // raw fastqc on input reads
@@ -189,8 +189,13 @@ workflow {
         NUGEN_TRIM( ch_nugen_trim_script | combine( TRIMGALORE.out.reads ) )
 
         // setting channel holding nugen-trimmed reads
-            // (collecting so it waits for all of them before starting TRIMMED_FASTQC on these)
         ch_trimmed_reads = NUGEN_TRIM.out.reads
+
+        // combining all nugen-trimming logs into one file
+        NUGEN_TRIM.out.logs | map { it -> it[1] } |
+                              collectFile( name: "nugen-trimming-logs.txt",
+                                           newLine: true,
+                                           storeDir: params.filtered_reads_dir )
 
     } else { 
 

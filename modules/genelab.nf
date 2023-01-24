@@ -90,7 +90,7 @@ process PARSE_ANNOTATIONS_TABLE {
   
   exec:
     def organisms = [:]
-    println "  ${YELLOW}Fetching table from ${annotations_csv_url_string}${NC}"
+    // println "  ${YELLOW}Fetching table from ${annotations_csv_url_string}${NC}"
     
     // download data to memory
     annotations_csv_url_string.toURL().splitEachLine(",") {fields ->
@@ -105,15 +105,15 @@ process PARSE_ANNOTATIONS_TABLE {
     ensemblSource = organisms[organism_key][4]
     simple_organism_name = organisms[organism_key][0]
 
-    println "  ${YELLOW}PARSING_ANNOTATIONS_TABLE:"
-    println "    Values parsed for '${organism_key}':"
-    println "--------------------------------------------------"
-    println "      - fasta_url: ${fasta_url}"
-    println "      - gtf_url: ${gtf_url}"
-    println "      - annotations_db_url: ${annotations_db_url}"
-    println "      - ensemblVersion: ${ensemblVersion}"
-    println "      - ensemblSource: ${ensemblSource}"
-    println "--------------------------------------------------${NC}"
+    // println "  ${YELLOW}PARSING_ANNOTATIONS_TABLE:"
+    // println "    Values parsed for '${organism_key}':"
+    // println "--------------------------------------------------"
+    // println "      - fasta_url: ${fasta_url}"
+    // println "      - gtf_url: ${gtf_url}"
+    // println "      - annotations_db_url: ${annotations_db_url}"
+    // println "      - ensemblVersion: ${ensemblVersion}"
+    // println "      - ensemblSource: ${ensemblSource}"
+    // println "--------------------------------------------------${NC}"
 
 }
 

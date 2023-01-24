@@ -1,9 +1,15 @@
-base nextflow env creation 
-mamba create -n nextflow -c conda-forge -c bioconda -c defaults nextflow=22.10.4
-
-conda activate nextflow
 local run: nextflow run main.nf -resume -profile conda,local
 gitpod run: nextflow run main.nf -resume -profile docker
+
+
+# base nextflow env creation 
+mamba create -n nextflow -c conda-forge -c bioconda -c defaults nextflow=22.10.4
+    # that puts in a new ls without coloring, so can activate, remove it, then re-activate to use system ls
+
+conda activate nextflow
+rm ${CONDA_PREFIX}/bin/ls
+conda deactivate
+conda activate nextflow
 
 
 # example running methylkit script manually with test data
