@@ -1,4 +1,5 @@
 .DS_Store
+Resource_Usage/
 *.Rhistory
 .nextflow*
 results/

@@ -1,9 +1,4 @@
 #!/usr/bin/env nextflow
-/*
-==========================================================================================
-Largely modified from the nf-core/methylseq workflow: https://github.com/nf-core/methylseq
-==========================================================================================
-*/
 
 // Declare syntax version
 nextflow.enable.dsl=2
@@ -24,7 +19,7 @@ if( ! nextflow.version.matches( workflow.manifest.nextflowVersion ) ) {
 
 if (params.help) {
     log.info "\n┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅"
-    log.info "┇          GeneLab Methyl-seq Workflow: $workflow.manifest.version            ┇"
+    log.info "┇          GeneLab MethylSeq Workflow: $workflow.manifest.version            ┇"
     log.info "┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅\n"
     
     log.info "                        HELP MENU\n"
@@ -142,7 +137,7 @@ workflow {
     if ( params.gldsAccession ) { 
 
         // setting glds_acc channel
-        ch_glds_accession = Channel.from( params.gldsAccession)
+        ch_glds_accession = Channel.from( params.gldsAccession )
 
         // running staging sub-workflow
         STAGING( ch_glds_accession, params.stageLocal )

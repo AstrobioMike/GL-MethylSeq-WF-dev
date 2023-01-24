@@ -119,7 +119,7 @@ process EXTRACT_METHYLATION_CALLS {
 
 process GEN_BISMARK_SAMPLE_REPORT {
 
-    tag "On: $meta"
+    tag "On: $meta.id"
 
     publishDir params.individual_sample_reports, mode: 'link', pattern: "*.html"
 
