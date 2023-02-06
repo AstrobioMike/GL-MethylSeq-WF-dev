@@ -25,6 +25,9 @@ process GEN_BISMARK_REF {
 
         # moving log file into bismark dir since i can't figure out how to do it with publishDirs above
         mv bismark-genome-preparation-output.txt ${ params.bismark_index_dir }
+
+        # creating genomic (di)-nucleotide stats file for later use by alignment step with --nucleotide_coverage flags
+        bam2nuc --genome_folder ${ params.bismark_index_dir } --genomic_composition_only
         """        
 
 }
@@ -35,6 +38,8 @@ process ALIGN {
     tag "On: $meta.id"
 
     publishDir params.bismark_alignments_dir, mode: 'link', pattern: "${ meta.id }*_sorted.bam"
+    publishDir params.bismark_alignments_dir, mode: 'link', pattern: "${ meta.id }*.nucleotide_stats.txt"
+
 
     input:
         tuple val(meta), path(reads), path( bismark_index_dir )
@@ -42,6 +47,7 @@ process ALIGN {
     output:
         tuple val(meta), path("${ meta.id }_bismark_*_sorted.bam"), emit: bams
         tuple val(meta), path("${ meta.id }_bismark_*_report.txt"), emit: reports
+        tuple val(meta), path("${ meta.id }_bismark_*.nucleotide_stats.txt"), emit: nuc_stats
 
     script:
 
@@ -50,7 +56,7 @@ process ALIGN {
 
 
         """
-        bismark --bam --non_bs_mm -p ${ params.bismark_align_threads } --genome_folder ${ bismark_index_dir } ${ non_directional } ${ fastq_files } 
+        bismark --bam --non_bs_mm --nucleotide_coverage -p ${ params.bismark_align_threads } --genome_folder ${ bismark_index_dir } ${ non_directional } ${ fastq_files } 
 
         sorted_bam_name=\$(ls *.bam | sed 's/_trimmed//' | sed 's/.bam/_sorted.bam/')
 
@@ -58,8 +64,12 @@ process ALIGN {
         samtools sort -@ ${ params.general_threads } -o \${sorted_bam_name} *.bam
 
         # renaming report files so it is cleaner and match up with autodetection of sorted bam files by bismark2summary later
-        new_report_name=\$(ls *_report.txt | sed 's/_trimmed//' | sed 's/_\\(.E\\)/_sorted_\\1/')
-        mv *_report.txt \${new_report_name}
+        new_report_filename=\$(ls *_report.txt | sed 's/_trimmed//' | sed 's/_\\(.E\\)/_sorted_\\1/')
+        mv *_report.txt \${new_report_filename}
+
+        # renaming nucleotide stats file to be cleaner
+        new_stats_filename=\$(ls *.nucleotide_stats.txt | sed 's/_trimmed//')
+        mv *.nucleotide_stats.txt \${new_stats_filename}
         """
 
 }
@@ -124,7 +134,7 @@ process GEN_BISMARK_SAMPLE_REPORT {
     publishDir params.individual_sample_reports, mode: 'link', pattern: "*.html"
 
     input:
-        tuple val(meta), path(alignment_report), path(meth_calls_report), path(m_bias_report), file(dedupe_report)
+        tuple val(meta), path(alignment_report), path(meth_calls_report), path(m_bias_report), path(nucleotide_covs), file(dedupe_report)
 
     output:
         tuple val(meta), path("${ meta.id }*_report.html"), emit: reports
@@ -134,7 +144,7 @@ process GEN_BISMARK_SAMPLE_REPORT {
         additional_args = params.rrbs ? "" : "--dedup_report ${ dedupe_report }"
 
         """
-        bismark2report --alignment_report ${ alignment_report } --splitting_report ${ meth_calls_report } --mbias_report ${ m_bias_report } ${ additional_args }
+        bismark2report --alignment_report ${ alignment_report } --splitting_report ${ meth_calls_report } --mbias_report ${ m_bias_report } --nucleotide_report ${ nucleotide_covs } ${ additional_args }
         """
 
 }

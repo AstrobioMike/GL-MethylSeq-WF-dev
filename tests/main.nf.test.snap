@@ -1,0 +1,17 @@
+{
+    "Should run without failures": {
+        "content": [
+            [
+                "Flight_vs_Ground-sig-diff-hypermethylated-bases.tsv:md5,d13b0480bd04b01253ec3847cb6c0fb6",
+                "Flight_vs_Ground-sig-diff-hypermethylated-tiles.tsv:md5,d13b0480bd04b01253ec3847cb6c0fb6",
+                "Flight_vs_Ground-sig-diff-hypomethylated-bases.tsv:md5,d13b0480bd04b01253ec3847cb6c0fb6",
+                "Flight_vs_Ground-sig-diff-hypomethylated-tiles.tsv:md5,d13b0480bd04b01253ec3847cb6c0fb6",
+                "Flight_vs_Ground-sig-diff-methylated-bases.tsv:md5,d13b0480bd04b01253ec3847cb6c0fb6",
+                "Flight_vs_Ground-sig-diff-methylated-tiles.tsv:md5,d13b0480bd04b01253ec3847cb6c0fb6"
+            ],
+            "base-level-percent-methylated.tsv:md5,5af81c7629b0fe27fff5d2fe6766b8be",
+            "tile-level-percent-methylated.tsv:md5,ceba04587fd82374672c7be70303fdb5"
+        ],
+        "timestamp": "2023-01-27T23:54:37+0000"
+    }
+}

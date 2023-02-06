@@ -16,3 +16,4 @@ test-MethylKit_Outputs/
 test-data/
 test-meth-calls/
 test-ref-files/
+.nf-test/

@@ -1,0 +1,37 @@
+nextflow_process {
+
+    name "Test Process TRIMGALORE"
+    script "modules/QC.nf"
+    process "TRIMGALORE"
+
+    test("Should run without failure with output reads file holding 3,939,448 lines") {
+
+        when {
+
+            params {
+
+                lib_type = 1
+                general_threads = 1
+                filtered_reads_dir = 'tests/Filtered_Sequence_Data/'
+
+            }
+
+            process {
+
+                """
+                input[0] = [ [ id: "F-SRR12865062" , paired_end: "false" ], file("test-data/F-SRR12865062-sub-test.fastq.gz") ]
+                """
+
+            }
+
+        }
+
+        then {
+
+            assert process.success
+            assert path("${ params.filtered_reads_dir }F-SRR12865062_trimmed.fastq.gz").linesGzip.size() == 3939448
+            
+        }
+
+    }
+}

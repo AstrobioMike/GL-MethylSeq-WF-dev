@@ -1,0 +1,39 @@
+nextflow_pipeline {
+
+    name "Full workflow test of main.nf"
+    script "main.nf"
+
+    test("Should run without failures") {
+
+        when {
+
+            params {
+
+                /* **** Output directories **** */
+                multiqc_outputs_dir = 'tests/MultiQC_Outputs/'
+                filtered_reads_dir = 'tests/Filtered_Sequence_Data/'
+                bismark_index_dir = 'tests/Bismark_Index/'
+                bismark_alignments_dir = 'tests/Bismark_Alignments/'
+                bismark_methylation_calls_dir = 'tests/Bismark_Methylation_Calls/'
+                bismark_summary_dir = 'tests/Bismark_Summary/'
+                individual_sample_reports = 'tests/Bismark_Summary/Individual_Sample_Reports/'
+                project_multiqc_dir = "tests/Project_MultiQC/"
+                ref_genome_dir = "tests/Reference_Genome_Files/"
+                metadata_dir = "tests/Metadata/"
+                methylkit_outputs_dir = "tests/MethylKit_Outputs/"
+
+            }
+        }
+
+        then {
+
+            assert workflow.success
+            assert snapshot(
+                path("${ params.methylkit_outputs_dir }").list()
+            ).match()
+
+        }
+
+    }
+
+}

@@ -284,6 +284,7 @@ workflow {
     // putting all individual sample reports into one channel
     ch_all_sample_reports = ALIGN.out.reports | join( EXTRACT_METHYLATION_CALLS.out.reports ) | 
                                                 join( EXTRACT_METHYLATION_CALLS.out.biases ) |
+                                                join( ALIGN.out.nuc_stats ) |
                                                 join( ch_dedupe_reports )
 
     // generating individual sample bismark reports

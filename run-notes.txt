@@ -1,11 +1,10 @@
-local run: nextflow run main.nf -resume -profile conda,local
+local run: nextflow run main.nf -resume -profile local
 gitpod run: nextflow run main.nf -resume -profile docker
 
 
 # base nextflow env creation 
 mamba create -n nextflow -c conda-forge -c bioconda -c defaults nextflow=22.10.4
-    # that puts in a new ls without coloring, so can activate, remove it, then re-activate to use system ls
-
+    # that puts in a new ls without coloring, so can activate, remove it, then re-activate to use system ls, like so:
 conda activate nextflow
 rm ${CONDA_PREFIX}/bin/ls
 conda deactivate
@@ -27,3 +26,10 @@ tar -xvf MethylSeq-test-meth-call-cov-files.tar
 
 curl -L -o MethylSeq-test-ref-files.tar https://figshare.com/ndownloader/files/38616860
 tar -xvf MethylSeq-test-ref-files.tar
+
+
+## for nf-testing
+# nf-test init # initial setting up
+# nf-test generate pipeline main.nf # initial setting up
+
+nf-test test tests/main.nf.test
