@@ -477,7 +477,8 @@ for ( i in 1:dim(contrasts)[2]) {
         curr_diffAnn <- annotateWithGeneParts(as(curr_myDiff.all_sig, "GRanges"), gene.obj)    
         curr_sig_all_bases_tab_with_features <- cbind(data.frame(curr_myDiff.all_sig), 
                                                       getAssociationWithTSS(curr_diffAnn), 
-                                                      as.data.frame(getMembers(curr_diffAnn))) %>% .[,-c(8)]
+                                                      as.data.frame(getMembers(curr_diffAnn))) %>% 
+                                                          .[, !names(.) %in% c("target.row")]
         
     }
     
@@ -486,7 +487,8 @@ for ( i in 1:dim(contrasts)[2]) {
         curr_diffAnn.hyper <- annotateWithGeneParts(as(curr_myDiff.hyper, "GRanges"), gene.obj)
         curr_sig_hyper_bases_tab_with_features <- cbind(data.frame(curr_myDiff.hyper), 
                                                         getAssociationWithTSS(curr_diffAnn.hyper), 
-                                                        as.data.frame(getMembers(curr_diffAnn.hyper))) %>% .[,-c(8)]
+                                                        as.data.frame(getMembers(curr_diffAnn.hyper))) %>% 
+                                                            .[, !names(.) %in% c("target.row")]
         
     }
     
@@ -495,13 +497,12 @@ for ( i in 1:dim(contrasts)[2]) {
         curr_diffAnn.hypo <- annotateWithGeneParts(as(curr_myDiff.hypo, "GRanges"), gene.obj)
         curr_sig_hypo_bases_tab_with_features <- cbind(data.frame(curr_myDiff.hypo), 
                                                        getAssociationWithTSS(curr_diffAnn.hypo), 
-                                                       as.data.frame(getMembers(curr_diffAnn.hypo))) %>% .[,-c(8)]
+                                                       as.data.frame(getMembers(curr_diffAnn.hypo))) %>% 
+                                                           .[, !names(.) %in% c("target.row")]
         
     }
-    
-    
-    
-    
+
+
     ## adding features to tiles objects and making df with features added to sig tables (if any sig)
     
     if ( any_sig_tiles ) {
@@ -509,7 +510,8 @@ for ( i in 1:dim(contrasts)[2]) {
         curr_tiles_diffAnn <- annotateWithGeneParts(as(curr_tiles_myDiff.all_sig, "GRanges"), gene.obj)
         curr_tiles_sig_all_tab_with_features <- cbind(data.frame(curr_tiles_myDiff.all_sig), 
                                                       getAssociationWithTSS(curr_tiles_diffAnn), 
-                                                      as.data.frame(getMembers(curr_tiles_diffAnn))) %>% .[,-c(8)]
+                                                      as.data.frame(getMembers(curr_tiles_diffAnn))) %>% 
+                                                          .[, !names(.) %in% c("target.row")]
     }
     
     
@@ -518,7 +520,8 @@ for ( i in 1:dim(contrasts)[2]) {
         curr_tiles_diffAnn.hyper <- annotateWithGeneParts(as(curr_tiles_myDiff.hyper, "GRanges"), gene.obj)
         curr_tiles_sig_hyper_tab_with_features <- cbind(data.frame(curr_tiles_myDiff.hyper), 
                                                         getAssociationWithTSS(curr_tiles_diffAnn.hyper), 
-                                                        as.data.frame(getMembers(curr_tiles_diffAnn.hyper))) %>% .[,-c(8)]
+                                                        as.data.frame(getMembers(curr_tiles_diffAnn.hyper))) %>% 
+                                                            .[, !names(.) %in% c("target.row")]
         
     }
 
@@ -527,7 +530,8 @@ for ( i in 1:dim(contrasts)[2]) {
         curr_tiles_diffAnn.hypo <- annotateWithGeneParts(as(curr_tiles_myDiff.hypo, "GRanges"), gene.obj)
         curr_tiles_sig_hypo_tab_with_features <- cbind(data.frame(curr_tiles_myDiff.hypo), 
                                                        getAssociationWithTSS(curr_tiles_diffAnn.hypo), 
-                                                       as.data.frame(getMembers(curr_tiles_diffAnn.hypo))) %>% .[,-c(8)]
+                                                       as.data.frame(getMembers(curr_tiles_diffAnn.hypo))) %>% 
+                                                           .[, !names(.) %in% c("target.row")]
         
     }
 
