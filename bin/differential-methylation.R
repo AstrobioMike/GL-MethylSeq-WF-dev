@@ -68,7 +68,7 @@ args <- parse_args(parser)
 
 if ( args$test ) {
     
-    test_meth_data_link <- "https://figshare.com/ndownloader/files/38616845"
+    test_meth_data_link <- "https://figshare.com/ndownloader/files/39246758"
     test_meth_data_tarball <- "MethylSeq-test-meth-call-cov-files.tar"
     test_ref_data_link <- "https://figshare.com/ndownloader/files/38616860"
     test_ref_data_tarball <- "MethylSeq-test-ref-files.tar"
@@ -546,6 +546,10 @@ for ( i in 1:dim(contrasts)[2]) {
         curr_sig_all_bases_tab_with_features_and_annots <- 
             left_join(curr_sig_all_bases_tab_with_features_and_gene_IDs, 
                       functional_annots_tab, by = c("gene_ID" = args$primary_keytype)) %>% arrange(qvalue)
+
+        # renaming "gene_ID" column to be primary keytype
+        curr_sig_all_bases_tab_with_features_and_annots <- 
+            rename(curr_sig_all_bases_tab_with_features_and_annots, "gene_ID" = args$primary_keytype)
         
     }
     
@@ -557,7 +561,11 @@ for ( i in 1:dim(contrasts)[2]) {
         curr_sig_hyper_bases_tab_with_features_and_annots <- 
             left_join(curr_sig_hyper_bases_tab_with_features_and_gene_IDs, 
                       functional_annots_tab, by = c("gene_ID" = args$primary_keytype)) %>% arrange(qvalue)
-        
+
+        # renaming "gene_ID" column to be primary keytype
+        curr_sig_hyper_bases_tab_with_features_and_annots <- 
+            rename(curr_sig_hyper_bases_tab_with_features_and_annots, "gene_ID" = args$primary_keytype)
+
     }
 
     if ( any_sig_hypo ) {
@@ -568,7 +576,11 @@ for ( i in 1:dim(contrasts)[2]) {
         curr_sig_hypo_bases_tab_with_features_and_annots <- 
             left_join(curr_sig_hypo_bases_tab_with_features_and_gene_IDs, 
                       functional_annots_tab, by = c("gene_ID" = args$primary_keytype)) %>% arrange(qvalue)
-        
+
+        # renaming "gene_ID" column to be primary keytype
+        curr_sig_hypo_bases_tab_with_features_and_annots <- 
+            rename(curr_sig_hypo_bases_tab_with_features_and_annots, "gene_ID" = args$primary_keytype)
+
     }
 
     # and writing out (if they didn't have any, still producing the file but it will say "None detected")
@@ -655,6 +667,10 @@ for ( i in 1:dim(contrasts)[2]) {
             left_join(curr_sig_all_tiles_tab_with_features_and_gene_IDs, 
                       functional_annots_tab, by = c("gene_ID" = args$primary_keytype)) %>% arrange(qvalue)
 
+        # renaming "gene_ID" column to be primary keytype
+        curr_sig_all_tiles_tab_with_features_and_annots <- 
+            rename(curr_sig_all_tiles_tab_with_features_and_annots, "gene_ID" = args$primary_keytype)
+
     }
 
     if ( any_sig_tiles_hyper ) {
@@ -665,6 +681,10 @@ for ( i in 1:dim(contrasts)[2]) {
         curr_sig_hyper_tiles_tab_with_features_and_annots <- 
             left_join(curr_sig_hyper_tiles_tab_with_features_and_gene_IDs, 
                       functional_annots_tab, by = c("gene_ID" = args$primary_keytype)) %>% arrange(qvalue)
+
+        # renaming "gene_ID" column to be primary keytype
+        curr_sig_hyper_tiles_tab_with_features_and_annots <- 
+            rename(curr_sig_hyper_tiles_tab_with_features_and_annots, "gene_ID" = args$primary_keytype)
         
     }    
     
@@ -676,9 +696,13 @@ for ( i in 1:dim(contrasts)[2]) {
         curr_sig_hypo_tiles_tab_with_features_and_annots <- 
             left_join(curr_sig_hypo_tiles_tab_with_features_and_gene_IDs, 
                       functional_annots_tab, by = c("gene_ID" = args$primary_keytype)) %>% arrange(qvalue)
+
+        # renaming "gene_ID" column to be primary keytype
+        curr_sig_hypo_tiles_tab_with_features_and_annots <- 
+            rename(curr_sig_hypo_tiles_tab_with_features_and_annots, "gene_ID" = args$primary_keytype)
         
     }
-    
+
     
     # and writing out (if they didn't have any, still producing the file but it will say "None detected")
 
