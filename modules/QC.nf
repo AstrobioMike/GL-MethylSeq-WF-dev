@@ -37,11 +37,8 @@ process MULTIQC {
     script:
 
         """
-        multiqc --interactive -o ${ params.MQCLabel }_multiqc_data \
-                -n ${ params.MQCLabel }_multiqc \
+        multiqc --interactive -n ${ params.MQCLabel }_multiqc \
                 --config ${ params.multiqc_config } mqc_in/*
-
-        mv ${ params.MQCLabel }_multiqc_data/${ params.MQCLabel }_multiqc.html .
         
         zip -m -r '${ params.MQCLabel }_multiqc_data.zip' '${ params.MQCLabel }_multiqc_data'
         """
