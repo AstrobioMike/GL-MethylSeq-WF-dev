@@ -56,7 +56,7 @@ process ALIGN {
 
 
         """
-        bismark --bam --non_bs_mm --nucleotide_coverage -p ${ params.bismark_align_threads } --genome_folder ${ bismark_index_dir } ${ non_directional } ${ fastq_files } 
+        bismark --bam --non_bs_mm --nucleotide_coverage --parallel ${ params.bismark_align_threads } -p ${ params.bismark_align_threads } --genome_folder ${ bismark_index_dir } ${ non_directional } ${ fastq_files } 
 
         sorted_bam_name=\$(ls *.bam | sed 's/_trimmed//' | sed 's/.bam/_sorted.bam/')
 
