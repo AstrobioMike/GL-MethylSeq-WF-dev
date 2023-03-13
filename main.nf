@@ -41,17 +41,24 @@ if (params.help) {
 ////////////////////////////////////////////////////
 
 /* **** checking a glds accession or runsheet was specified **** */
-if ( ! params.gldsAccession ) {
+if ( ! params.gldsAccession && ! params.runsheet ) {
 
-    if ( ! params.runsheet ) {
+    println "\n    ${RED}A specific GLDS number (e.g., `--gldsAccession GLDS-397`) or a user-created"
+    println "    run sheet (e.g., `--runsheet my-runsheet.csv`) needs to be provided.${NC}"
 
-        println "\n    ${RED}A specific GLDS number (e.g., `--gldsAccession GLDS-397`) or a user-created"
-        println "    run sheet (e.g., `--runsheet my-runsheet.csv`) needs to be provided.${NC}"
+    println "\n  Exiting for now.\n"
+    exit 1
 
-        println "\n  Exiting for now.\n"
-        exit 1
+}
 
-    }
+/* **** checking that ONLY a glds accession or runsheet was specified **** */
+if ( params.gldsAccession && params.runsheet ) {
+
+    println "\n    ${RED}A specific GLDS number (e.g., `--gldsAccession GLDS-397`) AND a user-created"
+    println "    run sheet (e.g., `--runsheet my-runsheet.csv`) cannot both be provided.${NC}"
+
+    println "\n  Exiting for now.\n"
+    exit 1
 
 }
 

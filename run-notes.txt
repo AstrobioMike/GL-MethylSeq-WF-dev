@@ -1,3 +1,5 @@
+# in nextflow conda env (see below for creation notes)
+
 local run: nextflow run main.nf -resume -profile local
 gitpod run: nextflow run main.nf -resume -profile docker
 
