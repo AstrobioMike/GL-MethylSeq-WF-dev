@@ -127,6 +127,30 @@ include { GEN_BISMARK_REF ; ALIGN ; DEDUPLICATE ;
 include { DIFFERENTIAL_METHYLATION_ANALYSIS } from './modules/methylkit.nf'
 
 
+process TEMP_BLOCK_FOR_PAIRED {
+
+    debug true
+
+    input:
+        val(meta)
+
+    output:
+        val(meta)
+
+    exec:
+        if ( meta.paired_end ) {
+
+            println "\n    ${RED}The workflow is not yet ready to deal with paired-end data, which is what this"
+            println "    looks like based on the run sheet.${NC}"
+
+            println "\n  Exiting for now.\n"
+
+            exit 1
+
+        }
+
+}
+
 ////////////////////////////////////////////////////
 /* --          SUB-WORKFLOWS INCLUDED          -- */
 ////////////////////////////////////////////////////
@@ -165,6 +189,10 @@ workflow {
                             map { it -> it[0] } |
                             // view { meta -> "${YELLOW}  Autodetected Processing Metadata:\n\t pairedEND: ${meta.paired_end}\n\t organism: ${meta.organism_sci}\n\t primary_keytype: ${meta.primary_keytype}${NC}" } |
                             set { ch_meta }
+
+    // adding stop for now if paired-end
+    // this PROCESS is defined right above the workflow in this document
+    TEMP_BLOCK_FOR_PAIRED( ch_meta ) | set { ch_meta }
 
     // raw fastqc on input reads
     RAW_FASTQC( ch_input_reads )
@@ -320,7 +348,7 @@ workflow {
     // putting needed directories in a channel so things can be found when running in the nextflow work dir
     ch_reference_dir = channel.fromPath( params.ref_genome_dir )
     ch_bismark_coverages_dir = channel.fromPath( params.bismark_methylation_calls_dir )
-    // ch_methylkit_outputs_dir = channel.fromPath( params.methylkit_outputs_dir )
+
     // need to make coverage files one of the inputs so it knows to wait to start this
     ch_all_bismark_coverage_files = EXTRACT_METHYLATION_CALLS.out.covs | collect
     DIFFERENTIAL_METHYLATION_ANALYSIS( ch_methylkit_script,
