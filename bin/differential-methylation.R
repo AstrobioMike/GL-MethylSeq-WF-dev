@@ -233,7 +233,7 @@ runsheet <- read.csv(args$path_to_runsheet)
 # runsheet$Factor.Value.Other2 <- c(rep("LilMac", 6), rep("Fighter", 10))
 # runsheet$Factor.Value.Other2 <- c(rep("A", 6), rep("B", 8), rep("C", 2))
 factors <- runsheet %>% dplyr::select(starts_with("Factor.Value"))
-colnames(factors) = paste("factor", 1:dim(factors)[2], sep = "_")
+colnames(factors) <- paste("factor", 1:dim(factors)[2], sep = "_")
 
 # checking if there is more than two unique values in a given factor, as methylkit isn't built for that
     # might not need this after doing combined only way as RNAseq does, need to check later
