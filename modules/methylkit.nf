@@ -31,6 +31,9 @@ process DIFFERENTIAL_METHYLATION_ANALYSIS {
                           --methylkit_output_dir "." \
                           --ref_org_table_link ${ ref_org_table_link } \
                           --ref_annotations_tab_link ${ ref_annotation_tab_link } \
+                          --methRead_mincov ${ params.methRead_mincov } \
+                          --getMethylDiff_difference ${ params.getMethylDiff_difference } \
+                          --getMethylDiff_qvalue ${ params.getMethylDiff_qvalue } \
                           --primary_keytype ${ primary_keytype }
         """
 

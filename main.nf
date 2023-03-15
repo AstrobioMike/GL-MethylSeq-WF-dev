@@ -358,6 +358,7 @@ workflow {
 
     // need to make coverage files one of the inputs so it knows to wait to start this
     ch_all_bismark_coverage_files = EXTRACT_METHYLATION_CALLS.out.covs | collect
+
     DIFFERENTIAL_METHYLATION_ANALYSIS( ch_methylkit_script,
                                        ch_all_bismark_coverage_files,
                                        ch_bismark_coverages_dir,
