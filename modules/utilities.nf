@@ -2,6 +2,27 @@
  * Processes for general utilities.
  */
 
+process DOWNLOAD_AND_UNPACK_TEST_DATA {
+
+    // Downloads and test info and sets 
+    publishDir projectDir, mode: 'link'
+
+    input:
+        path(test_data_link)
+
+    output:
+//        val true, emit: ready_trigger
+        path("*")
+
+    script:
+
+        """
+        curl -L -o MethylSeq-test-data.tar ${ params.test_data_link }
+        tar -xf MethylSeq-test-data.tar
+        rm -f MethylSeq-test-data.tar
+        """
+    
+}
 
 process DOWNLOAD_GUNZIP_REFERENCES {
 

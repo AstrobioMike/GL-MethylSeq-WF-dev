@@ -26,6 +26,7 @@ include { METHYLSEQ_RUNSHEET_FROM_GLDS as GENERATE_RUNSHEET;
 workflow staging {
 
     take:
+        test // this is a trigger input, so if test data are used, this waits for that, it's not actually used below (https://nextflow-io.github.io/patterns/state-dependency/)
         ch_glds_accession
         stageLocal
     
