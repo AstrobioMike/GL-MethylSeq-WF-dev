@@ -43,14 +43,14 @@ if (params.help) {
 /* **** reporting if this is a test run **** */
 if ( params.test ) {
 
-    println "\n    ${YELLOW}The test profile has been specified. The test data come this figshare page:"
+    println "\n    ${YELLOW}The 'test' profile has been specified. The test data come this figshare page:"
     println "        ${params.test_figshare_link}${NC}\n"
 
 }
 
 
 /* **** checking a glds accession or runsheet was specified **** */
-if ( ! params.gldsAccession && ! params.runsheet ) {
+if ( ! params.gldsAccession && ! params.runsheet && ! params.test ) {
 
     println "\n    ${RED}A specific GLDS number (e.g., `--gldsAccession GLDS-397`) or a user-created"
     println "    run sheet (e.g., `--runsheet my-runsheet.csv`) needs to be provided.${NC}"
@@ -129,8 +129,7 @@ include { MULTIQC as TRIMMED_MULTIQC } from './modules/QC.nf' addParams( MQCLabe
 include { TRIMGALORE ; NUGEN_TRIM ; ALIGNMENT_QC } from './modules/QC.nf'
 include { PARSE_ANNOTATIONS_TABLE } from './modules/genelab.nf'
 include { DOWNLOAD_GUNZIP_REFERENCES ; GTF_TO_PRED ; 
-          PRED_TO_BED ; MAKE_GENE_TRANSCRIPT_MAP ;
-          DOWNLOAD_AND_UNPACK_TEST_DATA } from './modules/utilities.nf'
+          PRED_TO_BED ; MAKE_GENE_TRANSCRIPT_MAP } from './modules/utilities.nf'
 include { GEN_BISMARK_REF ; ALIGN ; DEDUPLICATE ; 
           EXTRACT_METHYLATION_CALLS ; GEN_BISMARK_SAMPLE_REPORT ;
           GEN_BISMARK_SUMMARY } from './modules/bismark.nf'
@@ -165,7 +164,7 @@ process TEMP_BLOCK_FOR_PAIRED {
 /* --          SUB-WORKFLOWS INCLUDED          -- */
 ////////////////////////////////////////////////////
 
-include { staging as STAGING } from './staging.nf'
+include { staging as STAGING } from './modules/staging.nf'
 
 
 ////////////////////////////////////////////////////
@@ -174,229 +173,199 @@ include { staging as STAGING } from './staging.nf'
 
 workflow {
 
-    if ( params.test ) {
+    // staging (and downloading if needed) input reads (or test data) and metadata
+    if ( params.gldsAccession ) {
 
-        // getting test data if this is run with the test profile
-        DOWNLOAD_AND_UNPACK_TEST_DATA( params.test_data_link )
-
-        ch_glds_accession = null
-        STAGING( DOWNLOAD_AND_UNPACK_TEST_DATA.out, ch_glds_accession, params.stageLocal )
+        // setting glds_acc channel
+        ch_glds_accession = Channel.from( params.gldsAccession )
 
     } else {
 
-        // staging (and downloading if needed) input reads and metadata
-        if ( params.gldsAccession ) {
-
-           // setting glds_acc channel
-           ch_glds_accession = Channel.from( params.gldsAccession )
-
-        } else {
-
-            ch_glds_accession = null
-
-        }
-
-        STAGING( params.test, ch_glds_accession, params.stageLocal )
+        // setting glds_acc channel to null
+        ch_glds_accession = null
 
     }
 
+    STAGING( ch_glds_accession, params.stageLocal )
 
+    // setting raw reads to channel
+    STAGING.out.raw_reads | set { ch_input_reads }
 
-    // // staging (and downloading if needed) input reads and metadata
-    // if ( params.gldsAccession ) { 
+    // storing general info to ch_meta
+    STAGING.out.raw_reads | first | 
+                            map { it -> it[0] } |
+                            // view { meta -> "${YELLOW}  Autodetected Processing Metadata:\n\t pairedEND: ${meta.paired_end}\n\t organism: ${meta.organism_sci}\n\t primary_keytype: ${meta.primary_keytype}${NC}" } |
+                            set { ch_meta }
 
-    //     // setting glds_acc channel
-    //     ch_glds_accession = Channel.from( params.gldsAccession )
+    // adding stop for now if paired-end
+    // this PROCESS is defined right above the workflow in this document
+    TEMP_BLOCK_FOR_PAIRED( ch_meta )
 
-    //     // running staging sub-workflow
-    //     STAGING( ch_glds_accession, params.stageLocal )
-
-    // } else {
-
-    //     // setting glds_acc channel to null
-    //     ch_glds_accession = null
-    //     STAGING( ch_glds_accession, params.stageLocal )
-
-    // }
-
-    // // setting raw reads to channel
-    // STAGING.out.raw_reads | set { ch_input_reads }
-
-    // // storing general info to ch_meta
-    // STAGING.out.raw_reads | first | 
-    //                         map { it -> it[0] } |
-    //                         // view { meta -> "${YELLOW}  Autodetected Processing Metadata:\n\t pairedEND: ${meta.paired_end}\n\t organism: ${meta.organism_sci}\n\t primary_keytype: ${meta.primary_keytype}${NC}" } |
-    //                         set { ch_meta }
-
-    // // adding stop for now if paired-end
-    // // this PROCESS is defined right above the workflow in this document
-    // TEMP_BLOCK_FOR_PAIRED( ch_meta ) | set { ch_meta }
-
-    // // raw fastqc on input reads
-    // RAW_FASTQC( ch_input_reads )
+    // raw fastqc on input reads
+    RAW_FASTQC( ch_input_reads )
     
-    // // getting all raw fastqc output files into one channel
-    // RAW_FASTQC.out.fastqc | map { it -> [ it[1], it[2]] } |
-    //                         flatten | collect | set { ch_raw_mqc_inputs }
+    // getting all raw fastqc output files into one channel
+    RAW_FASTQC.out.fastqc | map { it -> [ it[1], it[2]] } |
+                            flatten | collect | set { ch_raw_mqc_inputs }
 
-    // // setting channel for multiqc config file
-    // ch_multiqc_config = Channel.fromPath( params.multiqc_config )
+    // setting channel for multiqc config file
+    ch_multiqc_config = Channel.fromPath( params.multiqc_config )
 
-    // // multiqc on raw fastqc outputs
-    // RAW_MULTIQC( ch_raw_mqc_inputs )
+    // multiqc on raw fastqc outputs
+    RAW_MULTIQC( ch_raw_mqc_inputs )
 
-    // // quality trimming/filtering input reads
-    // TRIMGALORE( ch_input_reads )
+    // quality trimming/filtering input reads
+    TRIMGALORE( ch_input_reads )
 
-    // // combinging trimgalore logs
-    // TRIMGALORE.out.reports | map { it -> it[1] } | 
-    //                          collectFile( name: "trimgalore-reports.txt", 
-    //                                       newLine: true, 
-    //                                       storeDir: params.filtered_reads_dir )
+    // combinging trimgalore logs
+    TRIMGALORE.out.reports | map { it -> it[1] } | 
+                             collectFile( name: "trimgalore-reports.txt", 
+                                          newLine: true, 
+                                          storeDir: params.filtered_reads_dir )
 
-    // // running NuGEN-specific script if needed
-    // if ( params.lib_type == 3 ) { 
+    // running NuGEN-specific script if needed
+    if ( params.lib_type == 3 ) { 
 
-    //     ch_nugen_trim_script = channel.fromPath( "bin/trimRRBSdiversityAdaptCustomers.py" )
+        ch_nugen_trim_script = channel.fromPath( "bin/trimRRBSdiversityAdaptCustomers.py" )
 
-    //     NUGEN_TRIM( ch_nugen_trim_script | combine( TRIMGALORE.out.reads ) )
+        NUGEN_TRIM( ch_nugen_trim_script | combine( TRIMGALORE.out.reads ) )
 
-    //     // setting channel holding nugen-trimmed reads
-    //     ch_trimmed_reads = NUGEN_TRIM.out.reads
+        // setting channel holding nugen-trimmed reads
+        ch_trimmed_reads = NUGEN_TRIM.out.reads
 
-    //     // combining all nugen-trimming logs into one file
-    //     NUGEN_TRIM.out.logs | map { it -> it[1] } |
-    //                           collectFile( name: "nugen-trimming-logs.txt",
-    //                                        newLine: true,
-    //                                        storeDir: params.filtered_reads_dir )
+        // combining all nugen-trimming logs into one file
+        NUGEN_TRIM.out.logs | map { it -> it[1] } |
+                              collectFile( name: "nugen-trimming-logs.txt",
+                                           newLine: true,
+                                           storeDir: params.filtered_reads_dir )
 
-    // } else { 
+    } else { 
 
-    //     // updating channel holding initial trimmed reads
-    //         // (so can use same ch variable whether nugen script run or not)
-    //     ch_trimmed_reads = TRIMGALORE.out.reads
+        // updating channel holding initial trimmed reads
+            // (so can use same ch variable whether nugen script run or not)
+        ch_trimmed_reads = TRIMGALORE.out.reads
 
-    // }
+    }
 
-    // TRIMMED_FASTQC( ch_trimmed_reads )
+    TRIMMED_FASTQC( ch_trimmed_reads )
 
-    // // getting all trimmed fastqc output files into one channel
-    // TRIMMED_FASTQC.out.fastqc | map { it -> [ it[1], it[2] ] } |
-    //                             flatten | collect | set { ch_trimmed_mqc_inputs }
+    // getting all trimmed fastqc output files into one channel
+    TRIMMED_FASTQC.out.fastqc | map { it -> [ it[1], it[2] ] } |
+                                flatten | collect | set { ch_trimmed_mqc_inputs }
 
-    // // multiqc on raw fastqc outputs
-    // TRIMMED_MULTIQC( ch_trimmed_mqc_inputs )
+    // multiqc on raw fastqc outputs
+    TRIMMED_MULTIQC( ch_trimmed_mqc_inputs )
 
-    // // getting target reference info 
-    // PARSE_ANNOTATIONS_TABLE( params.reference_table_url, ch_meta.organism_sci )
+    // getting target reference info 
+    PARSE_ANNOTATIONS_TABLE( params.reference_table_url, ch_meta.organism_sci )
 
-    // // downloading reference fasta and gtf files
-    // DOWNLOAD_GUNZIP_REFERENCES( PARSE_ANNOTATIONS_TABLE.out.reference_genome_urls, PARSE_ANNOTATIONS_TABLE.out.reference_version_and_source )
+    // downloading reference fasta and gtf files
+    DOWNLOAD_GUNZIP_REFERENCES( PARSE_ANNOTATIONS_TABLE.out.reference_genome_urls, PARSE_ANNOTATIONS_TABLE.out.reference_version_and_source )
 
-    // // setting reference fasta to channel (for if/when integrating local refs)
-    // DOWNLOAD_GUNZIP_REFERENCES.out.fasta | set { ch_input_ref }
+    // setting reference fasta to channel (for if/when integrating local refs)
+    DOWNLOAD_GUNZIP_REFERENCES.out.fasta | set { ch_input_ref }
 
-    // // making bismark index from provided input fasta
-    // GEN_BISMARK_REF( ch_input_ref )
+    // making bismark index from provided input fasta
+    GEN_BISMARK_REF( ch_input_ref )
 
-    // // aligning 
-    // ch_trimmed_reads | combine( GEN_BISMARK_REF.out.ch_bismark_index_dir ) | ALIGN
+    // aligning 
+    ch_trimmed_reads | combine( GEN_BISMARK_REF.out.ch_bismark_index_dir ) | ALIGN
 
-    // // combinging aligning reports
-    // ALIGN.out.reports | map { it -> it[1] } | 
-    //                     collectFile( name: "bismark-align-reports.txt", 
-    //                                  newLine: true, 
-    //                                  storeDir: params.bismark_alignments_dir )
+    // combinging aligning reports
+    ALIGN.out.reports | map { it -> it[1] } | 
+                        collectFile( name: "bismark-align-reports.txt", 
+                                     newLine: true, 
+                                     storeDir: params.bismark_alignments_dir )
 
-    // // Alignment QC
-    // ALIGNMENT_QC( ALIGN.out.bams, DOWNLOAD_GUNZIP_REFERENCES.out.gtf )
+    // Alignment QC
+    ALIGNMENT_QC( ALIGN.out.bams, DOWNLOAD_GUNZIP_REFERENCES.out.gtf )
 
-    // // deduplicating only if *not* RRBS    
-    // if ( ! params.rrbs ) {
+    // deduplicating only if *not* RRBS    
+    if ( ! params.rrbs ) {
 
-    //     DEDUPLICATE( ALIGN.out.bams )
+        DEDUPLICATE( ALIGN.out.bams )
 
-    //     // setting deduped bams to 'ch_bams_to_extract_from'
-    //     DEDUPLICATE.out.bams | set { ch_bams_to_extract_from }
+        // setting deduped bams to 'ch_bams_to_extract_from'
+        DEDUPLICATE.out.bams | set { ch_bams_to_extract_from }
 
-    //     // setting channel holding initial bams
-    //     ALIGN.out.bams | set { ch_initial_bams }
+        // setting channel holding initial bams
+        ALIGN.out.bams | set { ch_initial_bams }
 
-    //     // combining dedupe reports
-    //     DEDUPLICATE.out.reports | map { it -> it[1] } | 
-    //                               collectFile( name: "bismark-dedupe-reports.txt", 
-    //                                            newLine: true, 
-    //                                            storeDir: params.bismark_alignments_dir )
+        // combining dedupe reports
+        DEDUPLICATE.out.reports | map { it -> it[1] } | 
+                                  collectFile( name: "bismark-dedupe-reports.txt", 
+                                               newLine: true, 
+                                               storeDir: params.bismark_alignments_dir )
 
-    //     // setting deduped reports channel to 'ch_dedupe_reports'
-    //     DEDUPLICATE.out.reports | set { ch_dedupe_reports }
+        // setting deduped reports channel to 'ch_dedupe_reports'
+        DEDUPLICATE.out.reports | set { ch_dedupe_reports }
     
 
-    // } else {
+    } else {
         
-    //     // setting channel holding initial bams
-    //     ALIGN.out.bams | set { ch_bams_to_extract_from }
+        // setting channel holding initial bams
+        ALIGN.out.bams | set { ch_bams_to_extract_from }
 
-    //     // setting channel holding bams to extract from (same as ch_bams_to_extract_from when no dedupe was done)
-    //     ALIGN.out.bams | set { ch_initial_bams }
+        // setting channel holding bams to extract from (same as ch_bams_to_extract_from when no dedupe was done)
+        ALIGN.out.bams | set { ch_initial_bams }
 
-    //     // creating empty channel for dedupe reports (so we can pass things the same way to bismark2summary later)
-    //     ALIGN.out.bams | map { it -> [ it[0], '' ] } | set { ch_dedupe_reports }
+        // creating empty channel for dedupe reports (so we can pass things the same way to bismark2summary later)
+        ALIGN.out.bams | map { it -> [ it[0], '' ] } | set { ch_dedupe_reports }
 
-    // }
+    }
 
-    // // extracting methylation calls
-    // EXTRACT_METHYLATION_CALLS( ch_bams_to_extract_from, GEN_BISMARK_REF.out.ch_bismark_index_dir )
+    // extracting methylation calls
+    EXTRACT_METHYLATION_CALLS( ch_bams_to_extract_from, GEN_BISMARK_REF.out.ch_bismark_index_dir )
 
-    // // combinging methylation call reports
-    // EXTRACT_METHYLATION_CALLS.out.reports | map { it -> it[1] } | 
-    //                                         collectFile( name: "bismark-methylation-call-reports.txt", 
-    //                                                      newLine: true, 
-    //                                                      storeDir: params.bismark_methylation_calls_dir )
+    // combinging methylation call reports
+    EXTRACT_METHYLATION_CALLS.out.reports | map { it -> it[1] } | 
+                                            collectFile( name: "bismark-methylation-call-reports.txt", 
+                                                         newLine: true, 
+                                                         storeDir: params.bismark_methylation_calls_dir )
 
-    // // putting all individual sample reports into one channel
-    // ch_all_sample_reports = ALIGN.out.reports | join( EXTRACT_METHYLATION_CALLS.out.reports ) | 
-    //                                             join( EXTRACT_METHYLATION_CALLS.out.biases ) |
-    //                                             join( ALIGN.out.nuc_stats ) |
-    //                                             join( ch_dedupe_reports )
+    // putting all individual sample reports into one channel
+    ch_all_sample_reports = ALIGN.out.reports | join( EXTRACT_METHYLATION_CALLS.out.reports ) | 
+                                                join( EXTRACT_METHYLATION_CALLS.out.biases ) |
+                                                join( ALIGN.out.nuc_stats ) |
+                                                join( ch_dedupe_reports )
 
-    // // generating individual sample bismark reports
-    // GEN_BISMARK_SAMPLE_REPORT( ch_all_sample_reports )
+    // generating individual sample bismark reports
+    GEN_BISMARK_SAMPLE_REPORT( ch_all_sample_reports )
 
-    // // making channel holding all input files for bismark2summary (bam files, align reports, splitting reports, dedupe reports if they exist)
-    // ch_bams_and_all_reports = ch_initial_bams | join( ch_all_sample_reports ) | map { it -> it[ 1..it.size() - 1 ] } | collect
+    // making channel holding all input files for bismark2summary (bam files, align reports, splitting reports, dedupe reports if they exist)
+    ch_bams_and_all_reports = ch_initial_bams | join( ch_all_sample_reports ) | map { it -> it[ 1..it.size() - 1 ] } | collect
 
-    // // making overall bismark summary     
-    // GEN_BISMARK_SUMMARY( ch_bams_and_all_reports )
+    // making overall bismark summary     
+    GEN_BISMARK_SUMMARY( ch_bams_and_all_reports )
 
-    // // converting GTF to BED
-    // GTF_TO_PRED( DOWNLOAD_GUNZIP_REFERENCES.out.gtf )
-    // PRED_TO_BED( GTF_TO_PRED.out.pred )
+    // converting GTF to BED
+    GTF_TO_PRED( DOWNLOAD_GUNZIP_REFERENCES.out.gtf )
+    PRED_TO_BED( GTF_TO_PRED.out.pred )
     
-    // // making a mapping file of genes to transcripts (needed to link to functional annotations in primary output table)
-    // MAKE_GENE_TRANSCRIPT_MAP( DOWNLOAD_GUNZIP_REFERENCES.out.gtf )
+    // making a mapping file of genes to transcripts (needed to link to functional annotations in primary output table)
+    MAKE_GENE_TRANSCRIPT_MAP( DOWNLOAD_GUNZIP_REFERENCES.out.gtf )
 
-    // // on to R and methylseq next
-    // // putting runsheet into channel
-    // ch_runsheet = channel.fromPath( params.runsheet )
+    // on to R and methylseq next
+    // putting runsheet into channel
+    ch_runsheet = channel.fromPath( params.runsheet )
 
-    // // putting script into channel so works when run from nextflow work dir
-    // ch_methylkit_script = channel.fromPath( "bin/differential-methylation.R" )
+    // putting script into channel so works when run from nextflow work dir
+    ch_methylkit_script = channel.fromPath( "bin/differential-methylation.R" )
 
-    // // putting needed directories in a channel so things can be found when running in the nextflow work dir
-    // ch_reference_dir = channel.fromPath( params.ref_genome_dir )
-    // ch_bismark_coverages_dir = channel.fromPath( params.bismark_methylation_calls_dir )
+    // putting needed directories in a channel so things can be found when running in the nextflow work dir
+    ch_reference_dir = channel.fromPath( params.ref_genome_dir )
+    ch_bismark_coverages_dir = channel.fromPath( params.bismark_methylation_calls_dir )
 
-    // // need to make coverage files one of the inputs so it knows to wait to start this
-    // ch_all_bismark_coverage_files = EXTRACT_METHYLATION_CALLS.out.covs | collect
-    // DIFFERENTIAL_METHYLATION_ANALYSIS( ch_methylkit_script,
-    //                                    ch_all_bismark_coverage_files,
-    //                                    ch_bismark_coverages_dir,
-    //                                    ch_reference_dir,
-    //                                    PARSE_ANNOTATIONS_TABLE.out.simple_organism_name, 
-    //                                    ch_runsheet,
-    //                                    params.reference_table_url,
-    //                                    PARSE_ANNOTATIONS_TABLE.out.annotations_db_url,
-    //                                    ch_meta.primary_keytype )
+    // need to make coverage files one of the inputs so it knows to wait to start this
+    ch_all_bismark_coverage_files = EXTRACT_METHYLATION_CALLS.out.covs | collect
+    DIFFERENTIAL_METHYLATION_ANALYSIS( ch_methylkit_script,
+                                       ch_all_bismark_coverage_files,
+                                       ch_bismark_coverages_dir,
+                                       ch_reference_dir,
+                                       PARSE_ANNOTATIONS_TABLE.out.simple_organism_name, 
+                                       ch_runsheet,
+                                       params.reference_table_url,
+                                       PARSE_ANNOTATIONS_TABLE.out.annotations_db_url,
+                                       ch_meta.primary_keytype )
 
 }

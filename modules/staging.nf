@@ -16,7 +16,8 @@ nextflow.enable.dsl=2
 
 include { METHYLSEQ_RUNSHEET_FROM_GLDS as GENERATE_RUNSHEET;
           GENERATE_METASHEET;
-          STAGE_RAW_READS; get_runsheet_paths } from './modules/genelab.nf'
+          STAGE_RAW_READS; get_runsheet_paths } from './genelab.nf'
+include { DOWNLOAD_AND_UNPACK_TEST_DATA } from './utilities.nf'
 
 
 ////////////////////////////////////////////////////
@@ -26,15 +27,22 @@ include { METHYLSEQ_RUNSHEET_FROM_GLDS as GENERATE_RUNSHEET;
 workflow staging {
 
     take:
-        test // this is a trigger input, so if test data are used, this waits for that, it's not actually used below (https://nextflow-io.github.io/patterns/state-dependency/)
         ch_glds_accession
         stageLocal
     
     main:
         sample_limit = params.limitSamplesTo ? params.limitSamplesTo : -1 // -1 in take means no limit
 
-        if ( ! params.runsheet ) {
+        if ( params.test ) {
 
+            // setting up test data
+            DOWNLOAD_AND_UNPACK_TEST_DATA()
+
+            DOWNLOAD_AND_UNPACK_TEST_DATA.out.runsheet | set{ ch_runsheet }
+
+        } else if ( ! params.runsheet ) {
+
+            // so in this case, a GLDS must have been provided, building off of that
             ch_glds_accession | GENERATE_RUNSHEET
         
             GENERATE_RUNSHEET.out.runsheet | set{ ch_runsheet }
@@ -43,9 +51,31 @@ workflow staging {
 
         } else {
 
-            ch_runsheet = channel.fromPath(params.runsheet)
+            // remaining case is if a runsheet was provided directly, so just setting that to a channel
+            ch_runsheet = Channel.fromPath( params.runsheet )
 
         }
+
+
+
+
+
+        // if ( ! params.runsheet ) {
+
+        //     ch_glds_accession | GENERATE_RUNSHEET
+        
+        //     GENERATE_RUNSHEET.out.runsheet | set{ ch_runsheet }
+        
+        //     GENERATE_METASHEET( GENERATE_RUNSHEET.out.isazip, GENERATE_RUNSHEET.out.runsheet )
+
+        // } else if ( params.test ) {
+
+        
+        // } else {
+
+        //     ch_runsheet = Channel.fromPath(params.runsheet)
+
+        // }
 
 
         ch_runsheet | splitCsv(header: true)

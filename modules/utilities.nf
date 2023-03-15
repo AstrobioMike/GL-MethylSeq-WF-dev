@@ -7,12 +7,10 @@ process DOWNLOAD_AND_UNPACK_TEST_DATA {
     // Downloads and test info and sets 
     publishDir projectDir, mode: 'link'
 
-    input:
-        path(test_data_link)
-
     output:
-//        val true, emit: ready_trigger
-        path("*")
+        path("${params.test_data_dir}test-runsheet.csv"), emit: runsheet
+        path("${params.test_data_dir}*.gz")
+        path("${params.test_data_dir}making-test-reads.sh")
 
     script:
 
