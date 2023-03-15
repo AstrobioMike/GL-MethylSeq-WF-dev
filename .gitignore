@@ -17,3 +17,4 @@ test-data/
 test-meth-calls/
 test-ref-files/
 .nf-test/
+setting-up-for-slurm-and-singularity-notes.txt
