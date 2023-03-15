@@ -4,5 +4,5 @@ channels:
     - bioconda
     - defaults
 dependencies:
-    - ucsc-gtftogenepred=377
-    - ucsc-genepredtobed=377
+    - ucsc-gtftogenepred==377
+    - ucsc-genepredtobed==377

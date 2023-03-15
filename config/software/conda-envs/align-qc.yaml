@@ -4,5 +4,5 @@ channels:
     - bioconda
     - defaults
 dependencies:
-    - samtools=1.16.1
-    - qualimap=2.2.2d
+    - samtools==1.16.1
+    - qualimap==2.2.2d
