@@ -43,7 +43,7 @@ if (params.help) {
 /* **** reporting if this is a test run **** */
 if ( params.test ) {
 
-    println "\n    ${YELLOW}The 'test' profile has been specified. The test data come this figshare page:"
+    println "\n    ${YELLOW}The 'test' profile has been specified. The test data come from this figshare page:"
     println "        ${params.test_figshare_link}${NC}\n"
 
 }
@@ -347,7 +347,7 @@ workflow {
 
     // on to R and methylseq next
     // putting runsheet into channel
-    ch_runsheet = channel.fromPath( params.runsheet )
+    STAGING.out.runsheet | set { ch_runsheet }
 
     // putting script into channel so works when run from nextflow work dir
     ch_methylkit_script = channel.fromPath( "bin/differential-methylation.R" )

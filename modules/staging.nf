@@ -57,27 +57,6 @@ workflow staging {
         }
 
 
-
-
-
-        // if ( ! params.runsheet ) {
-
-        //     ch_glds_accession | GENERATE_RUNSHEET
-        
-        //     GENERATE_RUNSHEET.out.runsheet | set{ ch_runsheet }
-        
-        //     GENERATE_METASHEET( GENERATE_RUNSHEET.out.isazip, GENERATE_RUNSHEET.out.runsheet )
-
-        // } else if ( params.test ) {
-
-        
-        // } else {
-
-        //     ch_runsheet = Channel.fromPath(params.runsheet)
-
-        // }
-
-
         ch_runsheet | splitCsv(header: true)
                     | map{ row -> get_runsheet_paths(row) }
                     | map{ it -> params.force_single_end ? mutate_to_single_end(it) : it }

@@ -1,8 +1,8 @@
 # in nextflow conda env (see below for creation notes)
 
-local test run: nextflow run main.nf -resume -profile local,test
+local test run (requires individual conda envs to be setup already currently): nextflow run main.nf -resume -profile local,test
 gitpod test run: nextflow run main.nf -resume -profile docker,test
-
+singularity and slurm test run: nextflow run main.nf -resume -profile singularity,slurm,test
 
 # base nextflow env creation 
 mamba create -n nextflow -c conda-forge -c bioconda -c defaults nextflow=22.10.4
@@ -17,7 +17,7 @@ conda activate nextflow
 conda activate methylkit
 Rscript --vanilla bin/differential-methylation.R --test
 
-# test data (reads and runsheet) can be downloaded from here
+# test data (reads and runsheet) can be downloaded from here (this is done automatically when the `-profile test` is specified)
 curl -L -o MethylSeq-test-data.tar https://figshare.com/ndownloader/files/38616833
 tar -xvf MethylSeq-test-data.tar
 
