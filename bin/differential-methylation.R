@@ -525,7 +525,7 @@ for ( i in 1:dim(contrasts)[2]) {
         
     }
 
-    if ( any_sig_tiles_hyper ) { 
+    if ( any_sig_tiles_hypo ) { 
 
         curr_tiles_diffAnn.hypo <- annotateWithGeneParts(as(curr_tiles_myDiff.hypo, "GRanges"), gene.obj)
         curr_tiles_sig_hypo_tab_with_features <- cbind(data.frame(curr_tiles_myDiff.hypo), 
