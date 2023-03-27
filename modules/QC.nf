@@ -178,7 +178,7 @@ process ALIGNMENT_QC {
         path(gtf)
 
     output:
-        path("${ meta.id }*_qualimap"), emit: qualimaps
+        path("${ meta.id }*_qualimap.zip"), emit: qualimaps
 
 
     script:
@@ -187,6 +187,8 @@ process ALIGNMENT_QC {
 
         """
         qualimap bamqc -bam ${ bam_file } -gff ${ gtf } -outdir ${ out_qualimap_dir } --collect-overlap-pairs --java-mem-size=${ params.qualimap_java_mem_size } -nt ${ params.general_threads }
+
+        zip -m -r ${ out_qualimap_dir }.zip ${ out_qualimap_dir }
         """
 
 }

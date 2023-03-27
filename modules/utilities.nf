@@ -163,9 +163,33 @@ process MAKE_GENE_TRANSCRIPT_MAP {
         outfile = ref_gtf.toString().replaceAll(".gtf", "-gene-to-transcript-map.tsv")
 
         """
-        awk ' \$3 == "transcript" ' ${ref_gtf} | cut -f 9 | tr -s ";" "\t" | \
+        awk ' \$3 == "transcript" ' ${ ref_gtf } | cut -f 9 | tr -s ";" "\t" | \
             cut -f 1,3 | tr -s " " "\t" | cut -f 2,4 | tr -d '"' \
-            > ${outfile}
+            > ${ outfile }
         """
 
 }
+
+// process FINAL_COMPRESSIONS {
+
+//     debug true
+
+//     publishDir "./", mode: 'link'
+
+//     input:
+//         path( trigger )
+//         path( bismark_index )
+
+//     output:
+//         path("*.zip")
+
+//     script:
+
+//         zip_out = params.bismark_index_dir.toString().replaceAll("/", "")
+
+//         """
+//         zip -r ${ zip_out }.zip ${ bismark_index }
+//         rm -rf ${ params.bismark_index_dir }
+//         """
+
+// }

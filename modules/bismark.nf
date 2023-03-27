@@ -4,15 +4,18 @@
 
 process GEN_BISMARK_REF {
 
-    publishDir "./", mode: 'link'
+    publishDir "./", mode: 'link', pattern: "*.zip"
 
     input:
         path( input_ref_fasta )
 
     output:
+        path( params.bismark_index_dir.toString().replaceAll("/", ".zip") )
         path( params.bismark_index_dir ), emit: ch_bismark_index_dir
 
     script:
+
+        zip_out = params.bismark_index_dir.toString().replaceAll("/", ".zip")
 
         """
         mkdir -p ${ params.bismark_index_dir }
@@ -28,6 +31,9 @@ process GEN_BISMARK_REF {
 
         # creating genomic (di)-nucleotide stats file for later use by alignment step with --nucleotide_coverage flags
         bam2nuc --genome_folder ${ params.bismark_index_dir } --genomic_composition_only
+
+        # zipping up for packaging with all outputs
+        zip -r ${ zip_out } ${ params.bismark_index_dir }
         """        
 
 }

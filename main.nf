@@ -130,6 +130,7 @@ include { TRIMGALORE ; NUGEN_TRIM ; ALIGNMENT_QC } from './modules/QC.nf'
 include { PARSE_ANNOTATIONS_TABLE } from './modules/genelab.nf'
 include { DOWNLOAD_GUNZIP_REFERENCES ; GTF_TO_PRED ; 
           PRED_TO_BED ; MAKE_GENE_TRANSCRIPT_MAP } from './modules/utilities.nf'
+        //   FINAL_COMPRESSIONS } from './modules/utilities.nf'
 include { GEN_BISMARK_REF ; ALIGN ; DEDUPLICATE ; 
           EXTRACT_METHYLATION_CALLS ; GEN_BISMARK_SAMPLE_REPORT ;
           GEN_BISMARK_SUMMARY } from './modules/bismark.nf'
@@ -368,5 +369,9 @@ workflow {
                                        params.reference_table_url,
                                        PARSE_ANNOTATIONS_TABLE.out.annotations_db_url,
                                        ch_meta.primary_keytype )
+
+
+    // new_ch_bismark_index_dir = channel.fromPath( params.bismark_index_dir )
+    // FINAL_COMPRESSIONS( DIFFERENTIAL_METHYLATION_ANALYSIS.out, new_ch_bismark_index_dir )
 
 }
