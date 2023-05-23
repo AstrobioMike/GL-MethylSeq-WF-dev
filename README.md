@@ -1,1 +1,1 @@
-# GL-BS-WF-dev
+# GL-MethylSeq-WF-dev
