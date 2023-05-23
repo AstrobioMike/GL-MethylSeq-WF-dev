@@ -4,6 +4,9 @@
     # in nextflow conda env (see below for creation notes):
 nextflow run main.nf -resume -profile local,test
 
+## local without envs needing to be setup already (locaiton specified in conda-envs.config)
+nextflow run main.nf -resume -profile conda,test
+
 ## gitpod test run: 
 nextflow run main.nf -resume -profile docker,test
 
