@@ -23,26 +23,28 @@ process FASTQC {
 
 process MULTIQC {
 
-    tag "On: ${ params.MQCLabel }"
-
-    publishDir params.multiqc_outputs_dir, mode: 'link'
+    publishDir params.multiqc_outputs_dir, mode: 'link', pattern: "*.zip"
 
     input:
-        path("mqc_in/*") // any number of multiqc compatible files
+        path("mqc_in/*")
 
     output:
-        path("${ params.MQCLabel }_multiqc.html"), emit: html
-        path("${ params.MQCLabel }_multiqc_data.zip"), emit: zipped_report
+        path("${ params.MQCLabel }_multiqc_report/${ params.MQCLabel }_multiqc.html"), emit: html
+        path("${ params.MQCLabel }_multiqc_report/${ params.MQCLabel }_multiqc_data"), emit: data
+        path("${ params.MQCLabel }_multiqc_report.zip"), emit: zipped_report
+        path("${ params.MQCLabel }_multiqc_report"), emit: unzipped_report
 
     script:
 
         """
         multiqc --interactive -n ${ params.MQCLabel }_multiqc \
-                --config ${ params.multiqc_config } mqc_in/*
-        
-        zip -m -r '${ params.MQCLabel }_multiqc_data.zip' '${ params.MQCLabel }_multiqc_data'
-        """
+                --force --cl-config 'max_table_rows: 99999999' \
+                --config ${ params.multiqc_config } \
+                -o ${ params.MQCLabel }_multiqc_report mqc_in/*
 
+
+        zip -r '${ params.MQCLabel }_multiqc_report.zip' '${ params.MQCLabel }_multiqc_report'
+        """
 }
 
 

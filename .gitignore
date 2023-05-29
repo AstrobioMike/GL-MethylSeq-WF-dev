@@ -4,7 +4,7 @@ Resource_Usage/
 .nextflow*
 results/
 work/
-MultiQC_Outputs/
+FastQC_Outputs/
 Bismark*
 samples.txt
 Trimmed_Sequence_Data/
