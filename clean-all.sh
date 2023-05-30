@@ -1,4 +1,4 @@
-rm -rf FastQC_Outputs/ work/ .nextflow* samples.txt Trimmed_Sequence_Data/ Bismark* Reference_Genome_Files/ Metadata/ MethylKit_Outputs/ Resource_Usage/
+rm -rf FastQC_Outputs/ work/ .nextflow* samples.txt Filtered_Sequence_Data/ Bismark* Reference_Genome_Files/ Metadata/ MethylKit_Outputs/ Resource_Usage/
 rm -rf .nf-test/ tests/FastQC_Outputs/ tests/work/ tests/.nextflow* tests/samples.txt tests/Filtered_Sequence_Data/ tests/Bismark* tests/Reference_Genome_Files/ tests/Metadata/ tests/MethylKit_Outputs/ tests/Resource_Usage/
 
 if [ ! -z ${1} ]; then

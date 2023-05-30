@@ -7,7 +7,7 @@ work/
 FastQC_Outputs/
 Bismark*
 samples.txt
-Trimmed_Sequence_Data/
+Filtered_Sequence_Data/
 Reference_Genome_Files/
 Metadata/
 MethylKit_Outputs/
