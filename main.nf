@@ -123,9 +123,9 @@ if ( params.truncateTo || ! params.stageLocal ) {
 ////////////////////////////////////////////////////
 
 include { FASTQC as RAW_FASTQC } from './modules/QC.nf' addParams( file_suffix: "" )
-include { FASTQC as TRIMMED_FASTQC } from './modules/QC.nf' addParams( file_suffix: "_trimmed" )
+include { FASTQC as TRIMMED_FASTQC } from './modules/QC.nf' addParams( file_suffix: "_filtered" )
 include { MULTIQC as RAW_MULTIQC } from './modules/QC.nf' addParams( MQCLabel: "raw" )
-include { MULTIQC as TRIMMED_MULTIQC } from './modules/QC.nf' addParams( MQCLabel: "trimmed" )
+include { MULTIQC as TRIMMED_MULTIQC } from './modules/QC.nf' addParams( MQCLabel: "filtered" )
 include { TRIMGALORE ; NUGEN_TRIM ; ALIGNMENT_QC } from './modules/QC.nf'
 include { PARSE_ANNOTATIONS_TABLE } from './modules/genelab.nf'
 include { DOWNLOAD_GUNZIP_REFERENCES ; GTF_TO_PRED ; 
