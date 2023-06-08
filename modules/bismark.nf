@@ -107,8 +107,8 @@ process EXTRACT_METHYLATION_CALLS {
 
     tag "On: $meta.id"
 
-    publishDir params.bismark_methylation_calls_dir, mode: 'link', pattern: "*.gz"
-    publishDir params.bismark_methylation_calls_dir, mode: 'link', pattern: "*M-bias.txt"
+    publishDir params.bismark_methylation_calls_dir, mode: 'link', pattern: "*cov.gz"
+    publishDir params.bismark_methylation_calls_dir, mode: 'link', pattern: "*.zip"
 
     input:
         tuple val(meta), path(bam_file)
@@ -121,13 +121,18 @@ process EXTRACT_METHYLATION_CALLS {
         tuple val(meta), path("*${ meta.id }*.txt.gz"), emit: contexts
         tuple val(meta), path("${ meta.id }*.M-bias.txt"), emit: biases
         tuple val(meta), path("${ meta.id }*_report.txt"), emit: reports
+        tuple val(meta), path("${ meta.id }*cytosine_context_summary.txt"), emit: context_summary
+        tuple val(meta), path("${ meta.id }*.zip"), emit: zip
 
     script:
 
         additional_args = "${ meta.paired_end }" == 'false' ? "" : "--ignore_r2 2 --ignore_3prime_r2 2"
+        zip_out = "${ meta.id }_bismark_methylation_calls.zip"
+
 
         """
         bismark_methylation_extractor --bedGraph --gzip --comprehensive --cytosine_report --genome_folder ${ bismark_index_dir } ${ additional_args } ${ bam_file }
+        zip ${ zip_out } *.gz *.txt
         """
 
 }

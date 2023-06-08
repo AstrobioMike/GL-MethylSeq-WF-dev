@@ -170,26 +170,19 @@ process MAKE_GENE_TRANSCRIPT_MAP {
 
 }
 
-// process FINAL_COMPRESSIONS {
+process CLEAN_FOR_PACKAGING {
 
-//     debug true
+    input:
+        path(trigger)
 
-//     publishDir "./", mode: 'link'
+    script:
 
-//     input:
-//         path( trigger )
-//         path( bismark_index )
+        """
+        # removing individual coverage files from packaged output
+            # they were needed in one place for passing to MethylKit
+            # but they are packaged in the sample-specific zips
+        
+        rm ${ projectDir }/${ params.bismark_methylation_calls_dir }*cov*
+        """
 
-//     output:
-//         path("*.zip")
-
-//     script:
-
-//         zip_out = params.bismark_index_dir.toString().replaceAll("/", "")
-
-//         """
-//         zip -r ${ zip_out }.zip ${ bismark_index }
-//         rm -rf ${ params.bismark_index_dir }
-//         """
-
-// }
+}
