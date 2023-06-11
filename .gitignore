@@ -11,7 +11,7 @@ samples.txt
 Filtered_Sequence_Data/
 Reference_Genome_Files/
 Metadata/
-MethylKit_Outputs/
+Differential_Methylation_Analysis_Data/
 test-reads/
 test-MethylKit_Outputs/
 test-data/

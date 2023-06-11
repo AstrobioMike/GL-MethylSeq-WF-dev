@@ -172,8 +172,13 @@ process MAKE_GENE_TRANSCRIPT_MAP {
 
 process CLEAN_FOR_PACKAGING {
 
+    publishDir params.methylkit_outputs_dir, mode: 'link'
+
     input:
         path(trigger)
+
+    output:
+        path("*.zip")
 
     script:
 
@@ -182,7 +187,14 @@ process CLEAN_FOR_PACKAGING {
             # they were needed in one place for passing to MethylKit
             # but they are packaged in the sample-specific zips
         
-        rm ${ projectDir }/${ params.bismark_methylation_calls_dir }*cov*
+        rm -f ${ projectDir }/${ params.bismark_methylation_calls_dir }*cov*
+
+        # zipping contrast directories and removing unzipped ones from output dir
+        for dir in \$(ls -d */); do
+            zip=\$(echo \${dir} | tr -d "/" | sed 's/\$/.zip/')
+            zip -r \${zip} \${dir}
+            rm -rf ${ projectDir }/${ params.methylkit_outputs_dir }/\${dir}
+        done
         """
 
 }
